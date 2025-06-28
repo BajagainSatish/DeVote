@@ -8,7 +8,21 @@ import (
 )
 
 // Global election and blockchain variables (only 1 election for simplicity)
-var election = contracts.NewElection([]string{"Ram", "Shyam"})
+// var election = contracts.NewElection([]string{"Ram", "Shyam"})
+
+var election *contracts.Election
+
+func init() {
+	loaded, err := contracts.LoadElection()
+	if err != nil {
+		// File doesn't exist or failed to load — start fresh
+		election = contracts.NewElection([]string{"Ram", "Shyam"})
+		_ = election.SaveElection()
+	} else {
+		election = loaded
+	}
+}
+
 var chain = blockchain.NewBlockchain()
 
 // HandleVote receives a POST request to cast a vote.
@@ -33,6 +47,9 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 	// Create a transaction and add it to the blockchain
 	tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
 	chain.AddBlock([]blockchain.Transaction{tx})
+
+	// Save updated election state
+	_ = election.SaveElection()
 
 	// Respond with success
 	w.WriteHeader(http.StatusCreated)

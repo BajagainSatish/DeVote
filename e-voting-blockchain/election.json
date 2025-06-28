@@ -1,0 +1,11 @@
+{
+  "Candidates": {
+    "Ram": 1,
+    "Shyam": 2
+  },
+  "Voters": {
+    "voter1": true,
+    "voter2": true,
+    "voter3": true
+  }
+}

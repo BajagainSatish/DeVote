@@ -20,30 +20,34 @@ func CreateGenesisBlock() Block {
 	return genesis
 }
 
-// NewBlockchain initializes a blockchain with the genesis block.
 func NewBlockchain() *Blockchain {
-	return &Blockchain{
-		Chain: []Block{CreateGenesisBlock()},
+	InitDB() // Open DB
+
+	blocks, err := LoadBlocks()
+	if err != nil || len(blocks) == 0 {
+		// No blocks in DB, create genesis
+		genesis := CreateGenesisBlock()
+		SaveBlock(genesis)
+
+		return &Blockchain{Chain: []Block{genesis}}
 	}
+
+	return &Blockchain{Chain: blocks}
 }
 
-// AddBlock creates a new block with the given transactions
-// and appends it to the chain.
 func (bc *Blockchain) AddBlock(transactions []Transaction) {
-	// Get the last block in the chain
 	lastBlock := bc.Chain[len(bc.Chain)-1]
 
-	// Create a new block
 	newBlock := Block{
-		Index:        len(bc.Chain),       // Index = current length of chain
-		Timestamp:    time.Now().String(), // Timestamp
-		PrevHash:     lastBlock.Hash,      // Link to previous block
-		Transactions: transactions,        // Transactions passed in
+		Index:        len(bc.Chain),
+		Timestamp:    time.Now().String(),
+		PrevHash:     lastBlock.Hash,
+		Transactions: transactions,
 	}
-
-	// Generate hash for the new block
 	newBlock.GenerateHash()
 
-	// Add the block to the chain
 	bc.Chain = append(bc.Chain, newBlock)
+
+	// Save to DB
+	SaveBlock(newBlock)
 }

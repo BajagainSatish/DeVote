@@ -1,7 +1,9 @@
 package contracts
 
 import (
-	"errors" // For returning custom error messages
+	"encoding/json"
+	"errors" //Return custom error messages
+	"os"
 )
 
 // Election represents one election round with registered candidates and voters.
@@ -44,4 +46,29 @@ func (e *Election) Vote(voterID, candidateID string) error {
 // Tally returns the current vote count for all candidates.
 func (e *Election) Tally() map[string]int {
 	return e.Candidates
+}
+
+const electionFile = "election.json" // Stored election state
+
+// SaveElection writes the election state to disk
+func (e *Election) SaveElection() error {
+	data, err := json.MarshalIndent(e, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(electionFile, data, 0644)
+}
+
+// LoadElection reads the election state from disk
+func LoadElection() (*Election, error) {
+	data, err := os.ReadFile(electionFile)
+	if err != nil {
+		return nil, err
+	}
+
+	var e Election
+	if err := json.Unmarshal(data, &e); err != nil {
+		return nil, err
+	}
+	return &e, nil
 }
