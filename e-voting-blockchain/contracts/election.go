@@ -8,10 +8,10 @@ import (
 
 // Candidate: A person running in the election
 type Candidate struct {
-	ID    string // unique identifier
-	Name  string // display name
-	Bio   string // optional description or manifesto
-	Votes int    // number of votes received by candidate
+	CandidateID string // unique identifier
+	Name        string // display name
+	Bio         string // optional description or manifesto
+	Votes       int    // number of votes received by candidate
 }
 
 // Election stores all candidates and tracks who has voted.
@@ -83,7 +83,7 @@ func (e *Election) AddCandidate(id, name, bio string) error {
 	if _, exists := e.Candidates[id]; exists {
 		return errors.New("candidate with that ID already exists")
 	}
-	e.Candidates[id] = Candidate{ID: id, Name: name, Bio: bio, Votes: 0}
+	e.Candidates[id] = Candidate{CandidateID: id, Name: name, Bio: bio, Votes: 0}
 	return nil
 }
 

@@ -1,0 +1,14 @@
+[
+    {
+        "VoterID": "v1",
+        "Name": "voter1",
+        "DOB": "1990-01-01",
+        "Location": "Kathmandu"
+    },
+    {
+        "VoterID": "v2",
+        "Name": "voter2",
+        "DOB": "1995-05-10",
+        "Location": "Pokhara"
+    }
+]

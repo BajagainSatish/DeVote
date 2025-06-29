@@ -31,6 +31,8 @@ var chain = blockchain.NewBlockchain()
 func HandleVote(w http.ResponseWriter, r *http.Request) {
 	type VoteRequest struct {
 		VoterID     string
+		Name        string
+		DOB         string
 		CandidateID string
 	}
 
@@ -39,8 +41,21 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 	// Decode JSON request body into the VoteRequest struct
 	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	// Let the smart contract handle validation and voting
-	err := election.Vote(req.VoterID, req.CandidateID)
+	// Load valid voter database
+	db, err := contracts.LoadVoterDatabase()
+	if err != nil {
+		http.Error(w, "Failed to load voter registry", http.StatusInternalServerError)
+		return
+	}
+
+	// Validate voter
+	if !db.IsValid(req.VoterID, req.Name, req.DOB) {
+		http.Error(w, "Invalid voter details", http.StatusUnauthorized)
+		return
+	}
+
+	// Check if already voted
+	err = election.Vote(req.VoterID, req.CandidateID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
