@@ -6,62 +6,67 @@ import (
 	"os"
 )
 
-// Election represents one election round with registered candidates and voters.
+// Candidate: A person running in the election
+type Candidate struct {
+	ID    string // unique identifier
+	Name  string // display name
+	Bio   string // optional description or manifesto
+	Votes int    // number of votes received by candidate
+}
+
+// Election stores all candidates and tracks who has voted.
 type Election struct {
-	Candidates map[string]int  // Candidate name → number of votes
-	Voters     map[string]bool // VoterID → hasVoted flag
+	Candidates map[string]Candidate // candidateID → Candidate
+	Voters     map[string]bool      // voterID → hasVoted
 }
 
-// NewElection creates a new election instance with a list of candidate names.
-func NewElection(candidates []string) *Election {
-	// Initialize candidate map with 0 votes
-	cMap := make(map[string]int)
-	for _, c := range candidates {
-		cMap[c] = 0
-	}
-
+// NewElection creates an empty election (no candidates yet)
+func NewElection() *Election {
 	return &Election{
-		Candidates: cMap,
-		Voters:     make(map[string]bool), // Empty map to track voters
+		Candidates: make(map[string]Candidate),
+		Voters:     make(map[string]bool),
 	}
 }
 
-// Vote lets a voter vote for a candidate.
-// It validates that the voter hasn't voted before and candidate is valid.
+// Vote allows a voter to vote for a candidate (once only).
 func (e *Election) Vote(voterID, candidateID string) error {
 	if e.Voters[voterID] {
 		return errors.New("voter has already voted")
 	}
 
-	if _, ok := e.Candidates[candidateID]; !ok {
+	candidate, ok := e.Candidates[candidateID]
+	if !ok {
 		return errors.New("invalid candidate")
 	}
 
-	e.Candidates[candidateID] += 1 // Increment vote count
-	e.Voters[voterID] = true       // Mark this voter as having voted
+	candidate.Votes++
+	e.Candidates[candidateID] = candidate
+	e.Voters[voterID] = true
 
 	return nil
 }
 
-// Tally returns the current vote count for all candidates.
+// Tally returns just the vote counts for all candidates.
 func (e *Election) Tally() map[string]int {
-	return e.Candidates
+	result := make(map[string]int)
+	for id, c := range e.Candidates {
+		result[id] = c.Votes
+	}
+	return result
 }
 
-const electionFile = "election.json" // Stored election state
-
-// SaveElection writes the election state to disk
+// SaveElection writes the election struct to a file.
 func (e *Election) SaveElection() error {
 	data, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(electionFile, data, 0644)
+	return os.WriteFile("election.json", data, 0644)
 }
 
-// LoadElection reads the election state from disk
+// LoadElection reads the election struct from file.
 func LoadElection() (*Election, error) {
-	data, err := os.ReadFile(electionFile)
+	data, err := os.ReadFile("election.json")
 	if err != nil {
 		return nil, err
 	}
@@ -71,4 +76,52 @@ func LoadElection() (*Election, error) {
 		return nil, err
 	}
 	return &e, nil
+}
+
+// AddCandidate adds a new candidate if the ID is unique.
+func (e *Election) AddCandidate(id, name, bio string) error {
+	if _, exists := e.Candidates[id]; exists {
+		return errors.New("candidate with that ID already exists")
+	}
+	e.Candidates[id] = Candidate{ID: id, Name: name, Bio: bio, Votes: 0}
+	return nil
+}
+
+// RemoveCandidate deletes a candidate from the election.
+func (e *Election) RemoveCandidate(id string) error {
+	if _, exists := e.Candidates[id]; !exists {
+		return errors.New("candidate not found")
+	}
+	delete(e.Candidates, id)
+	return nil
+}
+
+// UpdateCandidate changes a candidate's name/bio (not votes).
+func (e *Election) UpdateCandidate(id, name, bio string) error {
+	c, exists := e.Candidates[id]
+	if !exists {
+		return errors.New("candidate not found")
+	}
+	c.Name = name
+	c.Bio = bio
+	e.Candidates[id] = c
+	return nil
+}
+
+// GetCandidate returns a candidate by ID.
+func (e *Election) GetCandidate(id string) (Candidate, error) {
+	c, exists := e.Candidates[id]
+	if !exists {
+		return Candidate{}, errors.New("candidate not found")
+	}
+	return c, nil
+}
+
+// ListCandidates returns a list of all candidates.
+func (e *Election) ListCandidates() []Candidate {
+	list := make([]Candidate, 0, len(e.Candidates))
+	for _, c := range e.Candidates {
+		list = append(list, c)
+	}
+	return list
 }

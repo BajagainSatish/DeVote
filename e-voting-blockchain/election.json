@@ -1,7 +1,23 @@
 {
   "Candidates": {
-    "Ram": 1,
-    "Shyam": 2
+    "Ram": {
+      "ID": "Ram",
+      "Name": "Ram",
+      "Bio": "Experienced leader",
+      "Votes": 2
+    },
+    "Satish": {
+      "ID": "Satish",
+      "Name": "Satish",
+      "Bio": "Lord of all beasts and fishes in the sea.",
+      "Votes": 0
+    },
+    "Shyam": {
+      "ID": "Shyam",
+      "Name": "Shyam",
+      "Bio": "Experienced leader",
+      "Votes": 0
+    }
   },
   "Voters": {
     "voter1": true,
