@@ -1,4 +1,4 @@
-import React, { use } from "react";
+import React from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import HeroImg from "../assets/VotingBallot.svg";

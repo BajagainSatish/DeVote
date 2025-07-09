@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ballotBoxImageUrl from "../assets/VotingBallot.svg";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
@@ -12,13 +12,26 @@ const Register = () => {
     confirmPassword: "",
   });
 
+  const navigate = useNavigate();
+
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Register submitted:", formData);
+    const { email, voterId, password, confirmPassword } = form;
+
+    if (password !== confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+
+    //Ya chai backend sanga integrate garne
+
+    // Backend xaina aile so temporary simulation
+    alert("Simulated registration successful!");
+    navigate("/login");
   };
 
   return (
@@ -26,11 +39,11 @@ const Register = () => {
       <Navbar />
 
       <main className="flex flex-1 items-center justify-center px-6 py-6">
-        <div className="hidden md:flex md:w-1/2 justify-center">
+        <div className="hidden md:flex md:w-1/2 justify-start">
           <img
             src={ballotBoxImageUrl}
             alt="Ballot Box"
-            className="max-w-xs md:max-w-sm"
+            className="max-w-[505px] md:max-w-sm"
           />
         </div>
 
@@ -63,36 +76,21 @@ const Register = () => {
 
             <div className="relative">
               <label
-                htmlFor="dob"
+                htmlFor="voterId"
                 className="block mb-1 text-sm font-semibold text-gray-800"
               >
-                Date of Birth
+                VoterId
               </label>
               <input
-                type="date"
-                id="dob"
-                name="dob"
-                value={formData.dob}
+                type="text"
+                id="voterId"
+                name="voterId"
+                placeholder="25243608"
+                value={formData.voterId}
                 onChange={handleChange}
                 required
                 className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
               />
-              <div className="absolute right-3 top-[2.2rem] text-[#518675] pointer-events-none">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8 7V3m8 4V3m-9 8h10m-11 4h12a2 2 0 002-2V7a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
             </div>
 
             <div>
