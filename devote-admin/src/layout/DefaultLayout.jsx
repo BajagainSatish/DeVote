@@ -16,7 +16,7 @@ const DefaultLayout = ({ children }) => {
             <NavLink
               to="/dashboard"
               className={({ isActive }) =>
-                `block px-4 py-2 rounded hover:bg-[#21978B] ${
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
                   isActive ? "bg-[#21978B] text-white" : "text-gray-800"
                 }`
               }
@@ -26,7 +26,7 @@ const DefaultLayout = ({ children }) => {
             <NavLink
               to="/candidates/add"
               className={({ isActive }) =>
-                `block px-4 py-2 rounded hover:bg-[#21978B] ${
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
                   isActive ? "bg-[#21978B] text-white" : "text-gray-800"
                 }`
               }
@@ -36,12 +36,42 @@ const DefaultLayout = ({ children }) => {
             <NavLink
               to="/candidates/view"
               className={({ isActive }) =>
-                `block px-4 py-2 rounded hover:bg-[#21978B] ${
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
                   isActive ? "bg-[#21978B] text-white" : "text-gray-800"
                 }`
               }
             >
               View Candidates
+            </NavLink>
+            <NavLink
+              to="/parties/manage"
+              className={({ isActive }) =>
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
+                  isActive ? "bg-[#21978B] text-white" : "text-gray-800"
+                }`
+              }
+            >
+              Manage Parties
+            </NavLink>
+            <NavLink
+              to="/election/manage"
+              className={({ isActive }) =>
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
+                  isActive ? "bg-[#21978B] text-white" : "text-gray-800"
+                }`
+              }
+            >
+              Election Control
+            </NavLink>
+            <NavLink
+              to="/voters/manage"
+              className={({ isActive }) =>
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
+                  isActive ? "bg-[#21978B] text-white" : "text-gray-800"
+                }`
+              }
+            >
+              Manage Voters
             </NavLink>
           </nav>
         </aside>

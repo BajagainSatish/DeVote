@@ -1,82 +1,93 @@
-const API_BASE_URL = 'http://localhost:8080'; // Adjust to your Go server port
+const API_BASE_URL = "http://localhost:8080"
 
 class ApiService {
     constructor() {
-        this.token = localStorage.getItem('adminToken');
+        this.token = localStorage.getItem("adminToken")
     }
 
     async request(endpoint, options = {}) {
-        const url = `${API_BASE_URL}${endpoint}`;
+        const url = `${API_BASE_URL}${endpoint}`
         const config = {
             headers: {
-                'Content-Type': 'application/json',
+                "Content-Type": "application/json",
                 ...options.headers,
             },
             ...options,
-        };
-
-        if (this.token && !endpoint.includes('/login')) {
-            config.headers.Authorization = `Bearer ${this.token}`;
         }
+
+        // Add token to all admin requests
+        if (this.token && !endpoint.includes("/login")) {
+            config.headers.Authorization = `Bearer ${this.token}`
+        }
+
+        console.log("Making request to:", url)
+        console.log("Request config:", config)
+        console.log("Request body:", options.body)
 
         try {
-            const response = await fetch(url, config);
+            const response = await fetch(url, config)
 
-            // Log the response for debugging
-            console.log('Response status:', response.status);
-            console.log('Response headers:', response.headers);
+            console.log("Response status:", response.status)
+            console.log("Response headers:", Object.fromEntries(response.headers.entries()))
 
-            // Check if response has content
-            const contentType = response.headers.get('content-type');
-            let data;
-
-            if (contentType && contentType.includes('application/json')) {
-                data = await response.json();
-            } else {
-                const text = await response.text();
-                console.log('Non-JSON response:', text);
-                throw new Error('Server returned non-JSON response');
+            // Handle 401 Unauthorized specifically
+            if (response.status === 401) {
+                console.log("Unauthorized - clearing token and redirecting to login")
+                this.logout()
+                window.location.href = "/"
+                throw new Error("Session expired. Please login again.")
             }
 
-            console.log('Response data:', data); // Debug log
+            // Check content type before parsing
+            const contentType = response.headers.get("content-type")
+            let data
+
+            if (contentType && contentType.includes("application/json")) {
+                data = await response.json()
+                console.log("Response data:", data)
+            } else {
+                const text = await response.text()
+                console.log("Non-JSON response:", text)
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`)
+                }
+
+                return { message: text }
+            }
 
             if (!response.ok) {
-                throw new Error(data.message || data.error || `HTTP ${response.status}`);
+                throw new Error(data.message || data.error || `HTTP ${response.status}`)
             }
 
-            return data;
+            return data
         } catch (error) {
-            console.error('API Request failed:', error);
-            throw error;
+            console.error("API Request failed:", error)
+            throw error
         }
+    }
+
+    // Update token when login succeeds
+    setToken(token) {
+        this.token = token;
+        localStorage.setItem('adminToken', token);
     }
 
     // Auth methods
     async adminLogin(credentials) {
-        try {
-            console.log('Attempting login with:', credentials); // Debug log
+        const response = await this.request('/admin/login', {
+            method: 'POST',
+            body: JSON.stringify({
+                username: credentials.email,
+                password: credentials.password,
+            }),
+        });
 
-            const response = await this.request('/admin/login', {
-                method: 'POST',
-                body: JSON.stringify({
-                    username: credentials.email,
-                    password: credentials.password,
-                }),
-            });
-
-            console.log('Login response:', response); // Debug log
-
-            // Handle different response structures
-            if (response && response.token) {
-                this.token = response.token;
-                localStorage.setItem('adminToken', response.token);
-                return response;
-            } else {
-                throw new Error('Invalid response format: missing token');
-            }
-        } catch (error) {
-            console.error('Login error:', error);
-            throw error;
+        if (response && response.token) {
+            this.setToken(response.token);
+            return response;
+        } else {
+            throw new Error('Invalid response format: missing token');
         }
     }
 
@@ -85,7 +96,37 @@ class ApiService {
         localStorage.removeItem('adminToken');
     }
 
-    // Candidate methods
+    // Check if user is authenticated
+    isAuthenticated() {
+        return !!this.token;
+    }
+
+    // Rest of your methods remain the same...
+    async getParties() {
+        return this.request('/parties', { method: 'GET' });
+    }
+
+    async addParty(partyData) {
+        console.log("Adding party with data:", partyData)
+        return this.request("/admin/parties", {
+            method: "POST",
+            body: JSON.stringify(partyData),
+        })
+    }
+
+    async updateParty(id, partyData) {
+        return this.request(`/admin/parties/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(partyData),
+        });
+    }
+
+    async deleteParty(id) {
+        return this.request(`/admin/parties/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
     async addCandidate(candidateData) {
         return this.request('/admin/candidates', {
             method: 'POST',
@@ -93,23 +134,15 @@ class ApiService {
                 id: candidateData.id,
                 name: candidateData.name,
                 bio: candidateData.bio,
-                party: candidateData.party,
+                partyId: candidateData.partyId,
                 age: parseInt(candidateData.age) || 0,
-                imageUrl: candidateData.imageUrl || "", // We'll handle file upload later
+                imageUrl: candidateData.imageUrl || "",
             }),
         });
     }
 
     async getCandidates() {
-        return this.request('/candidates', {
-            method: 'GET',
-        });
-    }
-
-    async getCandidate(id) {
-        return this.request(`/candidates/${id}`, {
-            method: 'GET',
-        });
+        return this.request('/candidates', { method: 'GET' });
     }
 
     async updateCandidate(id, candidateData) {
@@ -118,7 +151,7 @@ class ApiService {
             body: JSON.stringify({
                 name: candidateData.name,
                 bio: candidateData.bio,
-                party: candidateData.party,
+                partyId: candidateData.partyId,
                 age: parseInt(candidateData.age) || 0,
                 imageUrl: candidateData.imageUrl || "",
             }),
@@ -127,6 +160,53 @@ class ApiService {
 
     async deleteCandidate(id) {
         return this.request(`/admin/candidates/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async startElection(electionData) {
+        return this.request('/admin/election/start', {
+            method: 'POST',
+            body: JSON.stringify(electionData),
+        });
+    }
+
+    async stopElection() {
+        return this.request('/admin/election/stop', {
+            method: 'POST',
+        });
+    }
+
+    async getElectionStatus() {
+        return this.request('/election/status', { method: 'GET' });
+    }
+
+    async getElectionStatistics() {
+        return this.request('/admin/election/statistics', { method: 'GET' });
+    }
+
+    async getElectionResults() {
+        return this.request('/election/results', { method: 'GET' });
+    }
+
+    // User/Voter management methods (don't include addUser since admin shouldn't add voters)
+    async getUsers() {
+        return this.request('/admin/users', { method: 'GET' });
+    }
+
+    async getUser(id) {
+        return this.request(`/admin/users/${id}`, { method: 'GET' });
+    }
+
+    async updateUser(id, userData) {
+        return this.request(`/admin/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(userData),
+        });
+    }
+
+    async deleteUser(id) {
+        return this.request(`/admin/users/${id}`, {
             method: 'DELETE',
         });
     }

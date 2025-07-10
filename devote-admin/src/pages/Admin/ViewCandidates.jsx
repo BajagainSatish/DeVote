@@ -10,13 +10,18 @@ export default function ViewCandidates() {
   const [editFormData, setEditFormData] = useState({
     name: "",
     bio: "",
-    party: "",
+    partyId: "",
     age: "",
     imageUrl: "",
   });
-
+  const [parties, setParties] = useState([]);
+  
   useEffect(() => {
     fetchCandidates();
+  }, []);
+
+  useEffect(() => {
+    fetchParties();
   }, []);
 
   const fetchCandidates = async () => {
@@ -54,7 +59,7 @@ export default function ViewCandidates() {
     setEditFormData({
       name: candidate.name,
       bio: candidate.bio,
-      party: candidate.party || "",
+      partyId: candidate.partyId || "",
       age: candidate.age || "",
       imageUrl: candidate.imageUrl || "",
     });
@@ -97,6 +102,15 @@ export default function ViewCandidates() {
     }
     // Fallback to a placeholder image
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(candidate.name)}&size=200&background=21978B&color=ffffff`;
+  };
+
+  const fetchParties = async () => {
+    try {
+      const data = await apiService.getParties();
+      setParties(data || []);
+    } catch (error) {
+      console.error("Failed to fetch parties" + error);
+    }
   };
 
   if (loading) {
@@ -154,14 +168,19 @@ export default function ViewCandidates() {
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                       placeholder="Name"
                     />
-                    <input
-                      type="text"
-                      name="party"
-                      value={editFormData.party}
+                    <select
+                      name="partyId"
+                      value={editFormData.partyId}
                       onChange={handleEditChange}
                       className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
-                      placeholder="Party"
-                    />
+                    >
+                      <option value="">Select Party (Optional)</option>
+                      {parties.map((party) => (
+                        <option key={party.id} value={party.id}>
+                          {party.name}
+                        </option>
+                      ))}
+                    </select>
                     <input
                       type="number"
                       name="age"
@@ -214,7 +233,7 @@ export default function ViewCandidates() {
                     
                     <div className="space-y-1 text-sm text-gray-600 mb-3">
                       <p><strong>ID:</strong> {candidate.candidateId}</p>
-                      <p><strong>Party:</strong> {candidate.party || "Independent"}</p>
+                      <p><strong>Party:</strong> {candidate.partyName || "Independent"}</p>
                       <p><strong>Age:</strong> {candidate.age || "N/A"}</p>
                       <p><strong>Votes:</strong> <span className="font-semibold text-[#21978B]">{candidate.votes}</span></p>
                       <p><strong>Bio:</strong> {candidate.bio}</p>

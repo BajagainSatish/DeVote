@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import apiService from "../../services/api";
 
@@ -6,13 +6,30 @@ export default function AddCandidate() {
   const [formData, setFormData] = useState({
     name: "",
     id: "",
-    party: "",
+    partyId: "",
     age: "",
     imageUrl: "",
     bio: "",
     region: "",
   });
+  const [parties, setParties] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [partiesLoading, setPartiesLoading] = useState(true);
+
+  useEffect(() => {
+    fetchParties();
+  }, []);
+
+  const fetchParties = async () => {
+    try {
+      const data = await apiService.getParties();
+      setParties(data || []);
+    } catch (error) {
+      toast.error("Failed to fetch parties" + error);
+    } finally {
+      setPartiesLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -45,9 +62,9 @@ export default function AddCandidate() {
       setFormData({
         name: "",
         id: "",
-        party: "",
+        partyId: "",
         age: "",
-        imageUrl: formData.imageUrl || "",
+        imageUrl: "",
         bio: "",
         region: "",
       });
@@ -94,15 +111,20 @@ export default function AddCandidate() {
         />
 
         <label className="block font-semibold mb-1 text-gray-800">Party</label>
-        <input
-          type="text"
-          name="party"
+        <select
+          name="partyId"
           className="w-full border border-gray-300 rounded px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-[#18BC9C]"
-          value={formData.party}
+          value={formData.partyId}
           onChange={handleChange}
-          placeholder="Enter party name"
-          disabled={loading}
-        />
+          disabled={loading || partiesLoading}
+        >
+          <option value="">Select Party (Optional)</option>
+          {parties.map((party) => (
+            <option key={party.id} value={party.id}>
+              {party.name}
+            </option>
+          ))}
+        </select>
 
         <label className="block font-semibold mb-1 text-gray-800">Age</label>
         <input
@@ -121,7 +143,7 @@ export default function AddCandidate() {
           type="url"
           name="imageUrl"
           className="w-full border border-gray-300 rounded px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-[#18BC9C]"
-          value={formData.imageUrl || ""}
+          value={formData.imageUrl}
           onChange={handleChange}
           placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
           disabled={loading}
