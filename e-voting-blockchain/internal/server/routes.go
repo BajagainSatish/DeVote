@@ -20,6 +20,7 @@ func SetupRoutes() http.Handler {
 	r.HandleFunc("/parties", HandleListParties).Methods("GET", "OPTIONS")
 	r.HandleFunc("/election/status", HandleElectionStatus).Methods("GET", "OPTIONS")
 	r.HandleFunc("/election/results", HandleElectionResults).Methods("GET", "OPTIONS")
+	r.HandleFunc("/admin/registered-voters", HandleGetRegisteredVoters).Methods("GET", "OPTIONS")
 
 	// Admin-only routes with OPTIONS support
 	admin := r.PathPrefix("/admin").Subrouter()

@@ -10,5 +10,11 @@
     "password": "7PyoByMp",
     "voterId": "v2",
     "email": "shyam@noob.com"
+  },
+  {
+    "username": "voter_v3",
+    "password": "NYcBxjYW",
+    "voterId": "v3",
+    "email": "three@hero.com"
   }
 ]

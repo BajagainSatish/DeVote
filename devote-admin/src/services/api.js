@@ -189,6 +189,10 @@ class ApiService {
         return this.request('/election/results', { method: 'GET' });
     }
 
+    async getRegisteredUsers() {
+        return this.request('/admin/registered-voters', { method: 'GET' });
+    }
+
     // User/Voter management methods (don't include addUser since admin shouldn't add voters)
     async getUsers() {
         return this.request('/admin/users', { method: 'GET' });
@@ -209,6 +213,16 @@ class ApiService {
         return this.request(`/admin/users/${id}`, {
             method: 'DELETE',
         });
+    }
+
+    async getRegisteredVoters() {
+        return this.request("/admin/registered-voters", { method: "GET" })
+    }
+
+    async deleteRegisteredVoter(voterID) {
+        return this.request(`/admin/registered-voters/${voterID}`, {
+            method: "DELETE",
+        })
     }
 }
 

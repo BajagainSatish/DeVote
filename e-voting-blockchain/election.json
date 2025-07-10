@@ -18,7 +18,7 @@
       "partyName": "Rastriya Swatantra Party",
       "age": 49,
       "imageUrl": "https://i.scdn.co/image/ab67616d00001e02bcd36b955da3be34c834a8e5",
-      "votes": 0
+      "votes": 1
     },
     "shere123": {
       "candidateId": "shere123",
@@ -52,7 +52,8 @@
     }
   },
   "voters": {
-    "v1": true
+    "v1": true,
+    "v3": true
   },
   "users": {},
   "parties": {

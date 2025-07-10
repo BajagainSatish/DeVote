@@ -889,3 +889,116 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "user deleted"})
 }
+
+// New handler for getting registered voters from the JSON file
+func HandleGetRegisteredVoters(w http.ResponseWriter, r *http.Request) {
+	log.Println("HandleGetRegisteredVoters called")
+	w.Header().Set("Content-Type", "application/json")
+
+	registeredUsers, err := contracts.LoadRegisteredUsers()
+	if err != nil {
+		log.Printf("Failed to load registered users: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to load registered users"})
+		return
+	}
+
+	// Convert to a format that includes voter details from the voter database
+	votersWithDetails := make([]map[string]interface{}, 0, len(registeredUsers))
+
+	// Load voter database to get additional details
+	db, err := contracts.LoadVoterDatabase()
+	if err != nil {
+		log.Printf("Failed to load voter database: %v", err)
+		// Still return registered users without additional details
+		for _, user := range registeredUsers {
+			votersWithDetails = append(votersWithDetails, map[string]interface{}{
+				"voterID":  user.VoterID,
+				"username": user.Username,
+				"email":    user.Email,
+				"name":     "N/A",
+				"dob":      "N/A",
+				"location": "N/A",
+			})
+		}
+	} else {
+		// Include details from voter database
+		for _, user := range registeredUsers {
+			voterDetail := map[string]interface{}{
+				"voterID":  user.VoterID,
+				"username": user.Username,
+				"email":    user.Email,
+				"name":     "N/A",
+				"dob":      "N/A",
+				"location": "N/A",
+			}
+
+			if voter, exists := db.Records[user.VoterID]; exists {
+				voterDetail["name"] = voter.Name
+				voterDetail["dob"] = voter.DOB
+				voterDetail["location"] = voter.Location
+			}
+
+			votersWithDetails = append(votersWithDetails, voterDetail)
+		}
+	}
+
+	log.Printf("Found %d registered voters", len(votersWithDetails))
+
+	if err := json.NewEncoder(w).Encode(votersWithDetails); err != nil {
+		log.Printf("Failed to encode registered voters: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to encode registered voters"})
+		return
+	}
+	log.Println("HandleGetRegisteredVoters completed successfully")
+}
+
+// New handler for deleting registered voters
+func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
+	log.Println("HandleDeleteRegisteredVoter called")
+	w.Header().Set("Content-Type", "application/json")
+
+	voterID := mux.Vars(r)["voterID"]
+	log.Printf("Attempting to delete registered voter: %s", voterID)
+
+	// Load current registered users
+	registeredUsers, err := contracts.LoadRegisteredUsers()
+	if err != nil {
+		log.Printf("Failed to load registered users: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to load registered users"})
+		return
+	}
+
+	// Find and remove the user
+	found := false
+	updatedUsers := make([]contracts.RegisteredUser, 0, len(registeredUsers))
+
+	for _, user := range registeredUsers {
+		if user.VoterID != voterID {
+			updatedUsers = append(updatedUsers, user)
+		} else {
+			found = true
+			log.Printf("Found and removing user: %s", user.Username)
+		}
+	}
+
+	if !found {
+		log.Printf("Voter ID %s not found in registered users", voterID)
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Voter not found"})
+		return
+	}
+
+	// Save updated list
+	if err := contracts.SaveRegisteredUsers(updatedUsers); err != nil {
+		log.Printf("Failed to save updated registered users: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save updated registered users"})
+		return
+	}
+
+	log.Printf("Successfully deleted registered voter: %s", voterID)
+	json.NewEncoder(w).Encode(map[string]string{"status": "voter deleted", "message": "Registered voter deleted successfully"})
+}

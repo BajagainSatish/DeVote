@@ -197,7 +197,7 @@ export default function ElectionManagement() {
             </div>
             <div className="bg-purple-50 p-4 rounded-lg text-center">
               <p className="text-2xl font-bold text-purple-600">
-                {results.statistics.totalVoters}
+                {results.statistics.registeredUsers}
               </p>
               <p className="text-sm text-gray-600">Registered Voters</p>
             </div>

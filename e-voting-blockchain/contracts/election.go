@@ -269,6 +269,11 @@ func (e *Election) GetStatistics() map[string]interface{} {
 	}
 }
 
+// GetRegisteredVoters returns the full slice of registered users from disk.
+func (e *Election) GetRegisteredVoters() ([]RegisteredUser, error) {
+	return LoadRegisteredUsers()
+}
+
 // Vote method with election status check
 func (e *Election) Vote(voterID, candidateID string) error {
 	e.initializeMaps()
