@@ -1,0 +1,31 @@
+{
+  "Candidates": {
+    "Bibash": {
+      "CandidateID": "Bibash",
+      "Name": "Bibash",
+      "Bio": "Chill",
+      "Votes": 0
+    },
+    "Ram": {
+      "CandidateID": "Ram",
+      "Name": "Ram",
+      "Bio": "God",
+      "Votes": 0
+    },
+    "Satish": {
+      "CandidateID": "Satish",
+      "Name": "Satish Don",
+      "Bio": "Updated bio again",
+      "Votes": 0
+    },
+    "Shyam": {
+      "CandidateID": "Shyam",
+      "Name": "Shyam",
+      "Bio": "Chill",
+      "Votes": 0
+    }
+  },
+  "Voters": {
+    "v1": true
+  }
+}
