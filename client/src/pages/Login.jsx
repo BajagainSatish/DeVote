@@ -89,6 +89,7 @@ const Login = () => {
                 type="username"
                 id="username"
                 name="username"
+                autoComplete="username"
                 placeholder="voter_<voterID>"
                 value={formData.username}
                 onChange={handleChange}
@@ -108,6 +109,7 @@ const Login = () => {
                 type="password"
                 id="password"
                 name="password"
+                autoComplete="new-password"
                 placeholder="Enter Password"
                 value={formData.password}
                 onChange={handleChange}

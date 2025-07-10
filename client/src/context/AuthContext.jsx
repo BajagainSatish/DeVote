@@ -4,27 +4,26 @@ import { useNavigate } from "react-router-dom";
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const [voterId, setVoterId] = useState(null);
+  const [username, setUsername] = useState(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
 
-  const login = ({ voterId, admin = false }) => {
-    setVoterId(voterId);
+  const login = ({ username, admin = false }) => {
+    setUsername(username);
     setIsAdmin(admin);
   };
 
   const logout = () => {
-    setVoterId(null);
+    setUsername(null);
     setIsAdmin(false);
     navigate("/login");
   };
 
   return (
-    <AuthContext.Provider value={{ voterId, isAdmin, login, logout }}>
+    <AuthContext.Provider value={{ username, isAdmin, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-// Custom hook for cleaner usage
 export const UseAuth = () => useContext(AuthContext);

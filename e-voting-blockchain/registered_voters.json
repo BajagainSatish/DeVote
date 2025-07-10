@@ -1,8 +1,14 @@
 [
   {
     "username": "voter_v1",
-    "password": "X4UsVqFm",
+    "password": "fH0CszJU",
     "voterId": "v1",
     "email": "ram@hero.com"
+  },
+  {
+    "username": "voter_v2",
+    "password": "7PyoByMp",
+    "voterId": "v2",
+    "email": "shyam@noob.com"
   }
 ]
