@@ -235,7 +235,7 @@ func (e *Election) UpdateCandidate(id, name, bio, partyID string, age int, image
 	return nil
 }
 
-// Statistics Methods
+// Updated Statistics Methods to include registered users count
 func (e *Election) GetStatistics() map[string]interface{} {
 	e.initializeMaps()
 
@@ -249,6 +249,13 @@ func (e *Election) GetStatistics() map[string]interface{} {
 			votedUsers++
 		}
 	}
+
+	// Get count of registered users from the file
+	registeredUsersCount := 0
+	if registeredUsers, err := LoadRegisteredUsers(); err == nil {
+		registeredUsersCount = len(registeredUsers)
+	}
+
 	return map[string]interface{}{
 		"totalCandidates": len(e.Candidates),
 		"totalParties":    len(e.Parties),
@@ -257,6 +264,7 @@ func (e *Election) GetStatistics() map[string]interface{} {
 		"totalVotes":      totalVotes,
 		"votedUsers":      votedUsers,
 		"pendingVoters":   len(e.Users) - votedUsers,
+		"registeredUsers": registeredUsersCount, // Count from registered_voters.json
 		"electionStatus":  e.Status,
 	}
 }

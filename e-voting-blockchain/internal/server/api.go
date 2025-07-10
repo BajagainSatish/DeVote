@@ -4,6 +4,7 @@ import (
 	"e-voting-blockchain/blockchain"
 	"e-voting-blockchain/contracts"
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -32,16 +33,54 @@ func init() {
 
 var chain = blockchain.NewBlockchain()
 
+// Updated function to get voter details from the correct registered users file
+func getVoterDetailsFromRegistered(voterID string) (string, string, error) {
+	log.Printf("Looking for voter details for voterID: %s", voterID)
+
+	// Load registered users from the correct path
+	registeredUsers, err := contracts.LoadRegisteredUsers()
+	if err != nil {
+		log.Printf("Failed to load registered users: %v", err)
+		return "", "", err
+	}
+
+	log.Printf("Loaded %d registered users", len(registeredUsers))
+
+	// Find the user by voterID
+	for _, user := range registeredUsers {
+		log.Printf("Checking user: VoterID=%s, Username=%s", user.VoterID, user.Username)
+		if user.VoterID == voterID {
+			log.Printf("Found registered user for voterID %s", voterID)
+
+			// Load the voter database to get name and DOB
+			db, err := contracts.LoadVoterDatabase()
+			if err != nil {
+				log.Printf("Failed to load voter database: %v", err)
+				return "", "", err
+			}
+
+			if voter, exists := db.Records[voterID]; exists {
+				log.Printf("Found voter details: Name=%s, DOB=%s", voter.Name, voter.DOB)
+				return voter.Name, voter.DOB, nil
+			}
+			return "", "", errors.New("voter details not found in government database")
+		}
+	}
+
+	log.Printf("Voter with ID %s not found in registered users", voterID)
+	return "", "", errors.New("voter not registered")
+}
+
 // HandleVote receives a POST request to cast a vote.
 func HandleVote(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleVote called")
 	w.Header().Set("Content-Type", "application/json")
 
 	type VoteRequest struct {
-		VoterID     string
-		Name        string
-		DOB         string
-		CandidateID string
+		VoterID     string `json:"voterID"`
+		Name        string `json:"name"`
+		DOB         string `json:"dob"`
+		CandidateID string `json:"candidateID"`
 	}
 
 	var req VoteRequest
@@ -52,7 +91,33 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Load valid voter database
+	log.Printf("Received vote request: VoterID=%s, CandidateID=%s, Name=%s, DOB=%s",
+		req.VoterID, req.CandidateID, req.Name, req.DOB)
+
+	// Check if election is active
+	if !election.IsElectionActive() {
+		log.Println("Election is not active")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Election is not active"})
+		return
+	}
+
+	// If name and DOB are empty, try to get them from registered users
+	if req.Name == "" || req.DOB == "" {
+		log.Println("Name or DOB empty, fetching from registered users...")
+		name, dob, err := getVoterDetailsFromRegistered(req.VoterID)
+		if err != nil {
+			log.Printf("Failed to get voter details: %v", err)
+			w.WriteHeader(http.StatusUnauthorized)
+			json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+			return
+		}
+		req.Name = name
+		req.DOB = dob
+		log.Printf("Retrieved voter details: Name=%s, DOB=%s", req.Name, req.DOB)
+	}
+
+	// Load valid voter database for government validation
 	db, err := contracts.LoadVoterDatabase()
 	if err != nil {
 		log.Printf("Failed to load voter registry: %v", err)
@@ -61,15 +126,27 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate voter
+	// Validate voter against government database
+	log.Printf("Validating voter: ID=%s, Name=%s, DOB=%s", req.VoterID, req.Name, req.DOB)
 	if !db.IsValid(req.VoterID, req.Name, req.DOB) {
-		log.Println("Invalid voter details")
+		log.Printf("Invalid voter details for: ID=%s, Name=%s, DOB=%s", req.VoterID, req.Name, req.DOB)
 		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid voter details"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid voter details in government database"})
+		return
+	}
+	log.Println("Voter validation successful")
+
+	// Validate that the candidate exists
+	_, err = election.GetCandidate(req.CandidateID)
+	if err != nil {
+		log.Printf("Invalid candidate ID: %s", req.CandidateID)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid candidate selected"})
 		return
 	}
 
-	// Check if already voted
+	// Check if already voted and cast vote
+	log.Printf("Checking if voter %s has already voted", req.VoterID)
 	err = election.Vote(req.VoterID, req.CandidateID)
 	if err != nil {
 		log.Printf("Failed to vote: %v", err)
@@ -77,6 +154,7 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+	log.Println("Vote recorded successfully")
 
 	// Create a transaction and add it to the blockchain
 	tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
@@ -92,7 +170,7 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with success
 	w.WriteHeader(http.StatusCreated)
-	response := map[string]string{"status": "vote accepted"}
+	response := map[string]string{"status": "vote accepted", "message": "Your vote has been recorded successfully"}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("Failed to encode response: %v", err)
 	}
