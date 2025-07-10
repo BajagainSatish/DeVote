@@ -2,25 +2,28 @@ package contracts
 
 import (
 	"encoding/json"
-	"errors" //Return custom error messages
+	"errors"
 	"os"
 )
 
-// Candidate: A person running in the election
+// Updated Candidate struct with additional fields
 type Candidate struct {
-	CandidateID string // unique identifier
-	Name        string // display name
-	Bio         string // optional description or manifesto
-	Votes       int    // number of votes received by candidate
+	CandidateID string `json:"candidateId"`
+	Name        string `json:"name"`
+	Bio         string `json:"bio"`
+	Party       string `json:"party"`
+	Age         int    `json:"age"`
+	ImageURL    string `json:"imageUrl,omitempty"` // Optional image URL
+	Votes       int    `json:"votes"`
 }
 
 // Election stores all candidates and tracks who has voted.
 type Election struct {
-	Candidates map[string]Candidate // candidateID → Candidate
-	Voters     map[string]bool      // voterID → hasVoted
+	Candidates map[string]Candidate `json:"candidates"`
+	Voters     map[string]bool      `json:"voters"`
 }
 
-// NewElection creates an empty election (no candidates yet)
+// NewElection creates an empty election
 func NewElection() *Election {
 	return &Election{
 		Candidates: make(map[string]Candidate),
@@ -33,20 +36,17 @@ func (e *Election) Vote(voterID, candidateID string) error {
 	if e.Voters[voterID] {
 		return errors.New("voter has already voted")
 	}
-
 	candidate, ok := e.Candidates[candidateID]
 	if !ok {
 		return errors.New("invalid candidate")
 	}
-
 	candidate.Votes++
 	e.Candidates[candidateID] = candidate
 	e.Voters[voterID] = true
-
 	return nil
 }
 
-// Tally returns just the vote counts for all candidates.
+// Tally returns vote counts for all candidates.
 func (e *Election) Tally() map[string]int {
 	result := make(map[string]int)
 	for id, c := range e.Candidates {
@@ -70,7 +70,6 @@ func LoadElection() (*Election, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	var e Election
 	if err := json.Unmarshal(data, &e); err != nil {
 		return nil, err
@@ -78,12 +77,20 @@ func LoadElection() (*Election, error) {
 	return &e, nil
 }
 
-// AddCandidate adds a new candidate if the ID is unique.
-func (e *Election) AddCandidate(id, name, bio string) error {
+// AddCandidate adds a new candidate with all fields
+func (e *Election) AddCandidate(id, name, bio, party string, age int, imageURL string) error {
 	if _, exists := e.Candidates[id]; exists {
 		return errors.New("candidate with that ID already exists")
 	}
-	e.Candidates[id] = Candidate{CandidateID: id, Name: name, Bio: bio, Votes: 0}
+	e.Candidates[id] = Candidate{
+		CandidateID: id,
+		Name:        name,
+		Bio:         bio,
+		Party:       party,
+		Age:         age,
+		ImageURL:    imageURL,
+		Votes:       0,
+	}
 	return nil
 }
 
@@ -96,15 +103,23 @@ func (e *Election) RemoveCandidate(id string) error {
 	return nil
 }
 
-// UpdateCandidate changes a candidate's name/bio (not votes).
-func (e *Election) UpdateCandidate(id, name, bio string) error {
-	c, exists := e.Candidates[id]
+// UpdateCandidate changes candidate information
+func (e *Election) UpdateCandidate(id, name, bio, party string, age int, imageURL string) error {
+	_, exists := e.Candidates[id]
 	if !exists {
 		return errors.New("candidate not found")
 	}
-	c.Name = name
-	c.Bio = bio
-	e.Candidates[id] = c
+
+	// Update the candidate with new information
+	e.Candidates[id] = Candidate{
+		CandidateID: id,
+		Name:        name,
+		Bio:         bio,
+		Party:       party,
+		Age:         age,
+		ImageURL:    imageURL,
+		Votes:       e.Candidates[id].Votes, // Preserve existing votes
+	}
 	return nil
 }
 

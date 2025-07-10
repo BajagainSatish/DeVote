@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { toast } from "react-toastify";
+import apiService from "../../services/api";
 
 export default function AddCandidate() {
   const [formData, setFormData] = useState({
@@ -7,10 +8,11 @@ export default function AddCandidate() {
     id: "",
     party: "",
     age: "",
-    photo: null,
+    imageUrl: "",
     bio: "",
     region: "",
   });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -21,8 +23,9 @@ export default function AddCandidate() {
     }
   };
 
-  const handleAdd = (e) => {
+  const handleAdd = async (e) => {
     e.preventDefault();
+    
     if (!formData.name.trim()) {
       toast.error("Candidate name is required.");
       return;
@@ -31,19 +34,28 @@ export default function AddCandidate() {
       toast.error("Candidate ID is required.");
       return;
     }
-    //Ya backend integrate garne ani db ma save garne
-    toast.success(
-      `Candidate "${formData.name}" added successfully (simulated)!`
-    );
-    setFormData({
-      name: "",
-      id: "",
-      party: "",
-      age: "",
-      photo: null,
-      bio: "",
-      region: "",
-    });
+
+    setLoading(true);
+
+    try {
+      await apiService.addCandidate(formData);
+      toast.success(`Candidate "${formData.name}" added successfully!`);
+      
+      // Reset form
+      setFormData({
+        name: "",
+        id: "",
+        party: "",
+        age: "",
+        imageUrl: formData.imageUrl || "",
+        bio: "",
+        region: "",
+      });
+    } catch (error) {
+      toast.error(error.message || "Failed to add candidate");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -56,7 +68,7 @@ export default function AddCandidate() {
         <h2 className="text-2xl font-bold text-[#21978B] mb-6 text-center">
           Add New Candidate
         </h2>
-
+        
         <label className="block font-semibold mb-1 text-gray-800">Name</label>
         <input
           type="text"
@@ -66,6 +78,7 @@ export default function AddCandidate() {
           onChange={handleChange}
           placeholder="Enter candidate name"
           required
+          disabled={loading}
         />
 
         <label className="block font-semibold mb-1 text-gray-800">ID</label>
@@ -77,6 +90,7 @@ export default function AddCandidate() {
           onChange={handleChange}
           placeholder="Enter candidate ID"
           required
+          disabled={loading}
         />
 
         <label className="block font-semibold mb-1 text-gray-800">Party</label>
@@ -87,6 +101,7 @@ export default function AddCandidate() {
           value={formData.party}
           onChange={handleChange}
           placeholder="Enter party name"
+          disabled={loading}
         />
 
         <label className="block font-semibold mb-1 text-gray-800">Age</label>
@@ -98,17 +113,18 @@ export default function AddCandidate() {
           value={formData.age}
           onChange={handleChange}
           placeholder="Enter candidate age"
+          disabled={loading}
         />
 
-        <label className="block font-semibold mb-1 text-gray-800">Photo</label>
+        <label className="block font-semibold mb-1 text-gray-800">Image URL (Optional)</label>
         <input
-          type="file"
-          name="photo"
-          accept="image/*"
-          className="w-full mb-4 rounded border border-gray-300 px-3 py-2 cursor-pointer
-             bg-white text-gray-700 hover:border-[#18BC9C] focus:outline-none
-             focus:ring-2 focus:ring-[#18BC9C] transition"
+          type="url"
+          name="imageUrl"
+          className="w-full border border-gray-300 rounded px-4 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-[#18BC9C]"
+          value={formData.imageUrl || ""}
           onChange={handleChange}
+          placeholder="Enter image URL (e.g., https://example.com/image.jpg)"
+          disabled={loading}
         />
 
         <label className="block font-semibold mb-1 text-gray-800">Bio</label>
@@ -119,13 +135,15 @@ export default function AddCandidate() {
           value={formData.bio}
           onChange={handleChange}
           placeholder="Enter short biography"
+          disabled={loading}
         ></textarea>
 
         <button
           type="submit"
-          className="w-full bg-[#21978B] hover:bg-[#18BC9C] text-white font-semibold py-2 rounded transition duration-200"
+          className="w-full bg-[#21978B] hover:bg-[#18BC9C] text-white font-semibold py-2 rounded transition duration-200 disabled:opacity-50"
+          disabled={loading}
         >
-          Add Candidate
+          {loading ? "Adding..." : "Add Candidate"}
         </button>
       </form>
     </div>

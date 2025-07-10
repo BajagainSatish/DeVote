@@ -78,12 +78,18 @@ func HandleTally(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(election.Tally())
 }
 
-// List all candidates
+// get all candidates
 func HandleListCandidates(w http.ResponseWriter, r *http.Request) {
-	json.NewEncoder(w).Encode(election.ListCandidates())
+	// Set proper JSON content type
+	w.Header().Set("Content-Type", "application/json")
+
+	candidates := election.ListCandidates()
+	if err := json.NewEncoder(w).Encode(candidates); err != nil {
+		http.Error(w, "Failed to encode candidates", http.StatusInternalServerError)
+		return
+	}
 }
 
-// Get one candidate
 func HandleGetCandidate(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	candidate, err := election.GetCandidate(id)
@@ -91,64 +97,94 @@ func HandleGetCandidate(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	json.NewEncoder(w).Encode(candidate)
+
+	// Set proper JSON content type
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(candidate); err != nil {
+		http.Error(w, "Failed to encode candidate", http.StatusInternalServerError)
+		return
+	}
 }
 
-// Add new candidate
+// Update HandleAddCandidate function
 func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 	type Req struct {
-		ID   string
-		Name string
-		Bio  string
+		ID       string `json:"id"`
+		Name     string `json:"name"`
+		Bio      string `json:"bio"`
+		Party    string `json:"party"`
+		Age      int    `json:"age"`
+		ImageURL string `json:"imageUrl,omitempty"`
 	}
-	var req Req
-	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	err := election.AddCandidate(req.ID, req.Name, req.Bio)
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+
+	// Validate required fields
+	if req.ID == "" || req.Name == "" {
+		http.Error(w, "ID and Name are required", http.StatusBadRequest)
+		return
+	}
+
+	err := election.AddCandidate(req.ID, req.Name, req.Bio, req.Party, req.Age, req.ImageURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Add blockchain transaction to record admin action
-	payload := "ADD_CANDIDATE:" + req.Name + ":" + req.Bio
+	// Add blockchain transaction
+	payload := "ADD_CANDIDATE:" + req.Name + ":" + req.Party
 	tx := blockchain.NewTransaction("admin", req.ID, payload)
 	chain.AddBlock([]blockchain.Transaction{tx})
 
 	_ = election.SaveElection()
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"status": "candidate added"})
 }
 
-// Update existing candidate
+// Update HandleUpdateCandidate function
 func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	type Req struct {
-		Name string
-		Bio  string
-	}
-	var req Req
-	_ = json.NewDecoder(r.Body).Decode(&req)
 
-	err := election.UpdateCandidate(id, req.Name, req.Bio)
+	type Req struct {
+		Name     string `json:"name"`
+		Bio      string `json:"bio"`
+		Party    string `json:"party"`
+		Age      int    `json:"age"`
+		ImageURL string `json:"imageUrl,omitempty"`
+	}
+
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
+		return
+	}
+
+	err := election.UpdateCandidate(id, req.Name, req.Bio, req.Party, req.Age, req.ImageURL)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
 	// Log update in blockchain
-	payload := "UPDATE_CANDIDATE:" + req.Name + ":" + req.Bio
+	payload := "UPDATE_CANDIDATE:" + req.Name + ":" + req.Party
 	tx := blockchain.NewTransaction("admin", id, payload)
 	chain.AddBlock([]blockchain.Transaction{tx})
 
 	_ = election.SaveElection()
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "candidate updated"})
 }
 
-// Delete candidate
+// Update HandleDeleteCandidate function
 func HandleDeleteCandidate(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-
 	err := election.RemoveCandidate(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -160,5 +196,7 @@ func HandleDeleteCandidate(w http.ResponseWriter, r *http.Request) {
 	chain.AddBlock([]blockchain.Transaction{tx})
 
 	_ = election.SaveElection()
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "candidate removed"})
 }

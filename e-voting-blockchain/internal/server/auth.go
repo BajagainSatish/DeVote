@@ -13,12 +13,12 @@ var jwtKey = []byte("super-secret-admin-key") // for simplicity, change this lat
 var currentValidToken string                  // in-memory storage for now
 
 // Admin credentials
-const adminUsername = "admin"
-const adminPassword = "admin123" // change later
+const adminUsername = "admin@devote.com" // Change this to match frontend
+const adminPassword = "admin123"
 
 type AdminLoginRequest struct {
-	Username string
-	Password string
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 type Claims struct {
@@ -29,15 +29,22 @@ type Claims struct {
 // Admin login route
 func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	var creds AdminLoginRequest
-	_ = json.NewDecoder(r.Body).Decode(&creds)
 
-	if creds.Username != adminUsername || creds.Password != adminPassword {
-		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+	// Add error handling for JSON decoding
+	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
 
-	expirationTime := time.Now().Add(1 * time.Minute)
+	if creds.Username != adminUsername || creds.Password != adminPassword {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Invalid credentials",
+		})
+		return
+	}
 
+	expirationTime := time.Now().Add(1 * time.Hour) // Changed from 1 minute to 1 hour
 	claims := &Claims{
 		Username: creds.Username,
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -46,9 +53,27 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString(jwtKey)
-	currentValidToken = tokenString // Invalidate old token
-	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		http.Error(w, "Token generation failed", http.StatusInternalServerError)
+		return
+	}
+
+	currentValidToken = tokenString
+
+	// Ensure proper JSON response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	response := map[string]string{
+		"token":   tokenString,
+		"message": "Login successful",
+	}
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+		return
+	}
 }
 
 func HandleUserLogin(w http.ResponseWriter, r *http.Request) {

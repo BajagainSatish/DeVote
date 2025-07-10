@@ -1,31 +1,43 @@
 {
-  "Candidates": {
-    "Bibash": {
-      "CandidateID": "Bibash",
-      "Name": "Bibash",
-      "Bio": "Chill",
-      "Votes": 0
+  "candidates": {
+    "kp10": {
+      "candidateId": "kp10",
+      "name": "KP Oli",
+      "bio": "",
+      "party": "",
+      "age": 0,
+      "imageUrl": "https://th-i.thgim.com/public/news/international/iig8wn/article31878366.ece/alternates/BASE_SQUARE/TH21sharma-oliArt",
+      "votes": 0
     },
-    "Ram": {
-      "CandidateID": "Ram",
-      "Name": "Ram",
-      "Bio": "God",
-      "Votes": 0
+    "rabi123": {
+      "candidateId": "rabi123",
+      "name": "Rabi Lamichhane",
+      "bio": "Rabi Lamichhane (रवि लामिछाने) is a Nepalese politician who served as Deputy Prime Minister and Home Minister of Nepal. He has also been serving as the president of the Rastriya Swatantra Party since 2022. An ex-journalist, Lamichhane became a member of the House of Representatives from Chitwan 2 on 28 April 2023, having previously represented the constituency from December 2022 to January 2023 before being stripped of his position by the Supreme Court.\n\nHe is in jail right now.",
+      "party": "Rastriya Swatantra Party",
+      "age": 49,
+      "imageUrl": "https://i.scdn.co/image/ab67616d00001e02bcd36b955da3be34c834a8e5",
+      "votes": 0
     },
-    "Satish": {
-      "CandidateID": "Satish",
-      "Name": "Satish Don",
-      "Bio": "Updated bio again",
-      "Votes": 0
+    "sobita123": {
+      "candidateId": "sobita123",
+      "name": "Sobita Gautam",
+      "bio": "",
+      "party": "",
+      "age": 0,
+      "imageUrl": "https://assets.deshsanchar.com/wp-content/uploads/2023/01/21133843/Sobita-Gautam_Samsad-1.jpg",
+      "votes": 0
     },
-    "Shyam": {
-      "CandidateID": "Shyam",
-      "Name": "Shyam",
-      "Bio": "Chill",
-      "Votes": 0
+    "toshima123": {
+      "candidateId": "toshima123",
+      "name": "Toshima Karki",
+      "bio": "",
+      "party": "",
+      "age": 0,
+      "imageUrl": "https://english.pardafas.com/wp-content/uploads/2022/11/tosima-karki.jpg",
+      "votes": 0
     }
   },
-  "Voters": {
+  "voters": {
     "v1": true
   }
 }
