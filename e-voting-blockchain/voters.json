@@ -1,14 +1,23 @@
 [
     {
         "VoterID": "v1",
-        "Name": "voter1",
-        "DOB": "1990-01-01",
-        "Location": "Kathmandu"
+        "name": "Ram Thapa",
+        "dob": "1990-01-01",
+        "location": "Kathmandu",
+        "email": "ram@hero.com"
     },
     {
         "VoterID": "v2",
-        "Name": "voter2",
-        "DOB": "1995-05-10",
-        "Location": "Pokhara"
+        "name": "Shyam Dhungana",
+        "dob": "1995-05-10",
+        "location": "Pokhara",
+        "email": "shyam@noob.com"
+    },
+    {
+        "VoterID": "v3",
+        "name": "voter3",
+        "dob": "1991-01-05",
+        "location": "Kathmandu",
+        "email": "three@hero.com"
     }
 ]

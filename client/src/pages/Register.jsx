@@ -6,10 +6,11 @@ import Footer from "../components/Footer";
 
 const Register = () => {
   const [formData, setFormData] = useState({
-    email: "",
+    voterId: "",
+    name: "",
     dob: "",
-    password: "",
-    confirmPassword: "",
+    location: "",
+    email: "",
   });
 
   const navigate = useNavigate();
@@ -20,18 +21,30 @@ const Register = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const { email, voterId, password, confirmPassword } = form;
+    const { email, voterId, name, dob, location } = formData;
 
-    if (password !== confirmPassword) {
-      setError("Passwords do not match.");
-      return;
+    try {
+      const res = await fetch("http://localhost:8080/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, voterId, name, dob, location }),
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Registration failed");
+      }
+
+      const data = await res.json();
+      alert(
+        `Registration successful!\nYour username: ${data.username}\nYour password: ${data.password}`
+      );
+      navigate("/login");
+    } catch (err) {
+      alert("Error: " + err.message);
     }
-
-    //Ya chai backend sanga integrate garne
-
-    // Backend xaina aile so temporary simulation
-    alert("Simulated registration successful!");
-    navigate("/login");
   };
 
   return (
@@ -56,36 +69,14 @@ const Register = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label
-                htmlFor="email"
-                className="block mb-1 text-sm font-semibold text-gray-800"
-              >
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="abc@gmail.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
-              />
-            </div>
-
-            <div className="relative">
-              <label
-                htmlFor="voterId"
-                className="block mb-1 text-sm font-semibold text-gray-800"
-              >
-                VoterId
+              <label htmlFor="voterId" className="block mb-1 text-sm font-semibold text-gray-800">
+                Voter ID
               </label>
               <input
                 type="text"
                 id="voterId"
                 name="voterId"
-                placeholder="25243608"
+                placeholder="e.g. V1234567"
                 value={formData.voterId}
                 onChange={handleChange}
                 required
@@ -94,18 +85,15 @@ const Register = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="password"
-                className="block mb-1 text-sm font-semibold text-gray-800"
-              >
-                Password
+              <label htmlFor="name" className="block mb-1 text-sm font-semibold text-gray-800">
+                Full Name
               </label>
               <input
-                type="password"
-                id="password"
-                name="password"
-                placeholder="Enter Password"
-                value={formData.password}
+                type="text"
+                id="name"
+                name="name"
+                placeholder="Ram Bahadur"
+                value={formData.name}
                 onChange={handleChange}
                 required
                 className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
@@ -113,26 +101,55 @@ const Register = () => {
             </div>
 
             <div>
-              <label
-                htmlFor="confirmPassword"
-                className="block mb-1 text-sm font-semibold text-gray-800"
-              >
-                Confirm Password
+              <label htmlFor="dob" className="block mb-1 text-sm font-semibold text-gray-800">
+                Date of Birth
               </label>
               <input
-                type="password"
-                id="confirmPassword"
-                name="confirmPassword"
-                placeholder="Re-enter Password"
-                value={formData.confirmPassword}
+                type="date"//provides value in yyyy-mm-dd format which is used by voters.json eg: "DOB": "1990-01-01",
+                id="dob"
+                name="dob"
+                value={formData.dob}
+                onChange={handleChange}
+                required
+                className="w-full bg-gray-100 rounded-md px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="location" className="block mb-1 text-sm font-semibold text-gray-800">
+                Location
+              </label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                placeholder="Kathmandu"
+                value={formData.location}
                 onChange={handleChange}
                 required
                 className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
               />
             </div>
+
+            <div>
+              <label htmlFor="email" className="block mb-1 text-sm font-semibold text-gray-800">
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                placeholder="abc@example.com"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
+              />
+            </div>
+
             <button
               type="submit"
-              className="w-full bg-[#21978B] text-white py-2.5 rounded-md font-semibold"
+              className="w-full bg-[#21978B] text-white py-2.5 rounded-md font-semibold cursor-pointer"
             >
               Register
             </button>

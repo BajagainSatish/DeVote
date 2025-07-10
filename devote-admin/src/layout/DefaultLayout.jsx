@@ -45,7 +45,7 @@ const DefaultLayout = ({ children }) => {
             </NavLink>
           </nav>
         </aside>
-        {/* Yo chai main content area ho hai */}
+        {/* main content area  */}
         <main className="flex-1 p-6">{children || <Outlet />}</main>
       </div>
     </>

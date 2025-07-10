@@ -20,15 +20,13 @@ export default function AdminLogin() {
       return;
     }
 
-    //ahile ko lagi yo use garxu
+    //temporary
     if (email === "admin@devote.com" && password === "admin123") {
       toast.success("Login successful!");
       navigate("/dashboard");
     } else {
       toast.error("Invalid credentials.");
     }
-
-    // Backend integrate gara ya satish
   };
 
   return (

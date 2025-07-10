@@ -3,13 +3,17 @@ import { Link, useNavigate } from "react-router-dom";
 import ballotBoxImageUrl from "../assets/VotingBallot.svg";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { UseAuth } from "../context/AuthContext";
 
 const Login = () => {
+
+  const { login } = UseAuth();
+
   const [formData, setFormData] = useState({
-    email: "",
-    voterId: "",
+    username: "",
     password: "",
   });
+  
 
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -21,20 +25,29 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+  
+    const { username, password } = formData;
 
-    const { email, voterId, password } = formData;
-
-    //Ya chai backend sanga integrate garne
-
-    // Backend navayera temporary login simulate garna khojeko
-    if (
-      email === "test@example.com" &&
-      voterId === "123456" &&
-      password === "password"
-    ) {
-      navigate("/vote");
-    } else {
-      setError("Invalid credentials. Please try again.");
+    try {
+      const res = await fetch("http://localhost:8080/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ username, password }) //this payload is sent to backend
+      });
+  
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.message || "Invalid credentials.");
+      }
+  
+      const data = await res.json();
+      localStorage.setItem("token", data.token); // Save JWT
+      login({ username }); // Update context
+      navigate("/vote"); // Redirect to vote page
+    } catch (err) {
+      setError(err.message);
     }
   };
 
@@ -67,36 +80,17 @@ const Login = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label
-                htmlFor="email"
+                htmlFor="username"
                 className="block mb-1 text-sm font-semibold text-gray-800"
               >
-                Email
+                Username
               </label>
               <input
-                type="email"
-                id="email"
-                name="email"
-                placeholder="abc@gmail.com"
-                value={formData.email}
-                onChange={handleChange}
-                required
-                className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="voterId"
-                className="block mb-1 text-sm font-semibold text-gray-800"
-              >
-                VoterId
-              </label>
-              <input
-                type="text"
-                id="voterId"
-                name="voterId"
-                placeholder="25243608"
-                value={formData.voterId}
+                type="username"
+                id="username"
+                name="username"
+                placeholder="voter_<voterID>"
+                value={formData.username}
                 onChange={handleChange}
                 required
                 className="w-full bg-gray-100 rounded-md px-4 py-2.5 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#21978B]"
@@ -124,7 +118,7 @@ const Login = () => {
 
             <button
               type="submit"
-              className="w-full bg-[#21978B] text-white py-2.5 rounded-md font-semibold"
+              className="w-full bg-[#21978B] text-white py-2.5 rounded-md font-semibold cursor-pointer"
             >
               Login
             </button>
