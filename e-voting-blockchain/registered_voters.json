@@ -1,0 +1,20 @@
+[
+  {
+    "username": "voter_v1",
+    "password": "fH0CszJU",
+    "voterId": "v1",
+    "email": "ram@hero.com"
+  },
+  {
+    "username": "voter_v2",
+    "password": "7PyoByMp",
+    "voterId": "v2",
+    "email": "shyam@noob.com"
+  },
+  {
+    "username": "voter_v3",
+    "password": "NYcBxjYW",
+    "voterId": "v3",
+    "email": "three@hero.com"
+  }
+]

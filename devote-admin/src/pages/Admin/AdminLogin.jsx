@@ -1,34 +1,43 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
+import { UseAuth } from "../../context/AuthContext";
 
 export default function AdminLogin() {
   const [formData, setFormData] = useState({ email: "", password: "" });
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { login } = UseAuth();
 
   const handleChange = (e) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-
     const { email, password } = formData;
-
+    
     if (!email || !password) {
       toast.error("Please fill in all fields.");
       return;
     }
 
-    //ahile ko lagi yo use garxu
-    if (email === "admin@devote.com" && password === "admin123") {
-      toast.success("Login successful!");
-      navigate("/dashboard");
-    } else {
-      toast.error("Invalid credentials.");
+    setLoading(true);
+    
+    try {
+      const result = await login({ email, password });
+      
+      if (result.success) {
+        toast.success("Login successful!");
+        navigate("/dashboard");
+      } else {
+        toast.error(result.error || "Login failed");
+      }
+    } catch (error) {
+      toast.error("An error occurred during login" + error);
+    } finally {
+      setLoading(false);
     }
-
-    // Backend integrate gara ya satish
   };
 
   return (
@@ -37,7 +46,6 @@ export default function AdminLogin() {
         <h2 className="text-2xl font-bold text-center text-[#21978B] mb-6">
           Admin Login
         </h2>
-
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block mb-1 font-semibold text-gray-800">
@@ -47,13 +55,13 @@ export default function AdminLogin() {
               type="email"
               name="email"
               className="w-full border border-gray-300 px-4 py-2 rounded focus:outline-none focus:ring-2 focus:ring-[#18BC9C]"
-              placeholder="abc@email.com"
+              placeholder="admin@devote.com"
               value={formData.email}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
-
           <div>
             <label className="block mb-1 font-semibold text-gray-800">
               Password
@@ -66,14 +74,15 @@ export default function AdminLogin() {
               value={formData.password}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </div>
-
           <button
             type="submit"
-            className="w-full bg-[#21978B] text-white py-2.5 rounded font-semibold hover:bg-[#18BC9C] transition"
+            className="w-full bg-[#21978B] text-white py-2.5 rounded font-semibold hover:bg-[#18BC9C] transition disabled:opacity-50"
+            disabled={loading}
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>
