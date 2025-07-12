@@ -20,9 +20,17 @@ func SetupRoutes() http.Handler {
 	r.HandleFunc("/parties", HandleListParties).Methods("GET", "OPTIONS")
 	r.HandleFunc("/election/status", HandleElectionStatus).Methods("GET", "OPTIONS")
 	r.HandleFunc("/election/results", HandleElectionResults).Methods("GET", "OPTIONS")
-	r.HandleFunc("/admin/registered-voters", HandleGetRegisteredVoters).Methods("GET", "OPTIONS")
 
-	// Admin-only routes with OPTIONS support
+	// Blockchain endpoints (public for transparency)
+	r.HandleFunc("/blockchain", HandleGetBlockchain).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain/transactions", HandleGetTransactions).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain/stats", HandleGetBlockchainStats).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain/transaction/{id}", HandleGetTransaction).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain/block/{index}", HandleGetBlock).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain/verify", HandleVerifyBlockchain).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain/ws", HandleWebSocket).Methods("GET")
+
+	// Admin-only routes
 	admin := r.PathPrefix("/admin").Subrouter()
 	admin.Use(AuthMiddleware)
 
@@ -42,6 +50,8 @@ func SetupRoutes() http.Handler {
 	admin.HandleFunc("/users/{id}", HandleGetUser).Methods("GET", "OPTIONS")
 	admin.HandleFunc("/users/{id}", HandleUpdateUser).Methods("PUT", "OPTIONS")
 	admin.HandleFunc("/users/{id}", HandleDeleteUser).Methods("DELETE", "OPTIONS")
+	admin.HandleFunc("/registered-voters", HandleGetRegisteredVoters).Methods("GET", "OPTIONS")
+	admin.HandleFunc("/registered-voters/{voterID}", HandleDeleteRegisteredVoter).Methods("DELETE", "OPTIONS")
 
 	// Election management
 	admin.HandleFunc("/election/start", HandleStartElection).Methods("POST", "OPTIONS")

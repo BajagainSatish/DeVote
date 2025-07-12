@@ -9,6 +9,7 @@ import { UseAuth } from "../../context/AuthContext"
 const Dashboard = () => {
   const [statistics, setStatistics] = useState(null)
   const [electionStatus, setElectionStatus] = useState(null)
+  const [blockchainStats, setBlockchainStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const { logout } = UseAuth()
   const navigate = useNavigate()
@@ -19,9 +20,14 @@ const Dashboard = () => {
 
   const fetchData = async () => {
     try {
-      const [stats, status] = await Promise.all([apiService.getElectionStatistics(), apiService.getElectionStatus()])
+      const [stats, status, blockchainData] = await Promise.all([
+        apiService.getElectionStatistics(),
+        apiService.getElectionStatus(),
+        apiService.getBlockchainStats(),
+      ])
       setStatistics(stats)
       setElectionStatus(status)
+      setBlockchainStats(blockchainData)
     } catch (error) {
       toast.error("Failed to fetch dashboard data" + error)
     } finally {
@@ -142,10 +148,43 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Blockchain Statistics */}
+      {blockchainStats && (
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Blockchain Status</h3>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#21978B]">{blockchainStats.totalBlocks}</div>
+              <div className="text-gray-600">Total Blocks</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-[#21978B]">{blockchainStats.totalTransactions}</div>
+              <div className="text-gray-600">Total Transactions</div>
+            </div>
+            <div className="text-center">
+              <div
+                className={`text-2xl font-bold ${blockchainStats.chainIntegrity ? "text-green-600" : "text-red-600"}`}
+              >
+                {blockchainStats.chainIntegrity ? "✓ VALID" : "✗ INVALID"}
+              </div>
+              <div className="text-gray-600">Chain Integrity</div>
+            </div>
+            <div className="text-center">
+              <button
+                onClick={() => handleNavigation("/blockchain")}
+                className="bg-[#21978B] text-white px-4 py-2 rounded hover:bg-[#18BC9C] transition"
+              >
+                View Explorer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow-md p-6">
         <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button
             onClick={() => handleNavigation("/candidates/add")}
             className="bg-[#21978B] text-white p-4 rounded-lg hover:bg-[#18BC9C] transition"
@@ -179,6 +218,18 @@ const Dashboard = () => {
                 <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
               <p className="font-semibold">Election Control</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => handleNavigation("/blockchain")}
+            className="bg-purple-500 text-white p-4 rounded-lg hover:bg-purple-600 transition"
+          >
+            <div className="text-center">
+              <svg className="w-8 h-8 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z" />
+              </svg>
+              <p className="font-semibold">Blockchain Explorer</p>
             </div>
           </button>
         </div>

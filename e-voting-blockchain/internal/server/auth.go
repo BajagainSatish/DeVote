@@ -131,7 +131,7 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 1: Load government voter database
+	// Validate against government database
 	db, err := contracts.LoadVoterDatabase()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -146,7 +146,7 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Step 2: Load already registered users
+	// Check if already registered
 	registered, err := contracts.LoadRegisteredUsers()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -154,7 +154,6 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if already registered
 	for _, u := range registered {
 		if u.VoterID == req.VoterID {
 			w.WriteHeader(http.StatusConflict)
@@ -168,7 +167,7 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Step 3: Generate credentials
+	// Generate credentials
 	username := "voter_" + req.VoterID
 	password, err := contracts.GenerateSecurePassword(8)
 	if err != nil {
@@ -184,11 +183,15 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		Email:    req.Email,
 	}
 	registered = append(registered, newUser)
+
 	if err := contracts.SaveRegisteredUsers(registered); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save credentials"})
 		return
 	}
+
+	// Log to blockchain
+	blockchainLogger.LogVoterRegistration(req.VoterID, req.Email, r)
 
 	json.NewEncoder(w).Encode(map[string]string{
 		"username": username,

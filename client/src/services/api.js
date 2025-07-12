@@ -76,6 +76,60 @@ class VotingApiService {
     async getTally() {
         return this.request("/tally", { method: "GET" })
     }
+
+    // Blockchain methods
+    async getBlockchain() {
+        return this.request("/blockchain", { method: "GET" })
+    }
+
+    async getTransactions(params = {}) {
+        const queryString = new URLSearchParams(params).toString()
+        const endpoint = queryString ? `/blockchain/transactions?${queryString}` : "/blockchain/transactions"
+        return this.request(endpoint, { method: "GET" })
+    }
+
+    async getBlockchainStats() {
+        return this.request("/blockchain/stats", { method: "GET" })
+    }
+
+    async getTransaction(id) {
+        return this.request(`/blockchain/transaction/${id}`, { method: "GET" })
+    }
+
+    async getBlock(index) {
+        return this.request(`/blockchain/block/${index}`, { method: "GET" })
+    }
+
+    async verifyBlockchain() {
+        return this.request("/blockchain/verify", { method: "GET" })
+    }
+
+    // WebSocket connection for real-time updates
+    connectWebSocket(onMessage) {
+        const wsUrl = `ws://localhost:8080/blockchain/ws`
+        const ws = new WebSocket(wsUrl)
+
+        ws.onopen = () => {
+            console.log("WebSocket connected")
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data)
+            if (onMessage) {
+                onMessage(data)
+            }
+        }
+
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error)
+        }
+
+        ws.onclose = () => {
+            console.log("WebSocket disconnected")
+        }
+
+        return ws
+    }
 }
 
 export default new VotingApiService()

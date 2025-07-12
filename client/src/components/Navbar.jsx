@@ -1,6 +1,5 @@
 "use client"
 import React from "react"
-
 import { Link, useNavigate } from "react-router-dom"
 import { UseAuth } from "../context/AuthContext"
 
@@ -15,67 +14,64 @@ const Navbar = () => {
   }
 
   return (
-    <nav className="flex items-center justify-between px-12 py-4 border-b border-white bg-white shadow-md">
-      <Link to="/" className="text-xl font-bold text-gray-900">
-        DeVote
-      </Link>
+    <nav className="bg-[#21978B] text-white shadow-lg">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="flex justify-between items-center py-4">
+          <Link to="/" className="text-2xl font-bold">
+            DeVote
+          </Link>
 
-      {username ? (
-        // Logged in user navigation
-        <ul className="flex gap-10 text-gray-700 font-medium">
-          <li>
-            <Link to="/dashboard" className="hover:text-gray-900 cursor-pointer">
-              Dashboard
+          <div className="hidden md:flex space-x-6">
+            <Link to="/" className="hover:text-[#18BC9C] transition">
+              Home
             </Link>
-          </li>
-          <li>
-            <Link to="/vote" className="hover:text-gray-900 cursor-pointer">
-              Vote
-            </Link>
-          </li>
-          <li>
-            <Link to="/results" className="hover:text-gray-900 cursor-pointer">
-              Results
-            </Link>
-          </li>
-        </ul>
-      ) : (
-        // Guest navigation
-        <ul className="flex gap-10 text-gray-700 font-medium">
-          <li className="hover:text-gray-900 cursor-pointer">Home</li>
-          <li className="hover:text-gray-900 cursor-pointer">Features</li>
-          <li className="hover:text-gray-900 cursor-pointer">How it Works</li>
-          <li className="hover:text-gray-900 cursor-pointer">Contact</li>
-        </ul>
-      )}
+            {username ? (
+              <>
+                <Link to="/dashboard" className="hover:text-[#18BC9C] transition">
+                  Dashboard
+                </Link>
+                <Link to="/vote" className="hover:text-[#18BC9C] transition">
+                  Vote
+                </Link>
+                <Link to="/results" className="hover:text-[#18BC9C] transition">
+                  Results
+                </Link>
+                <Link to="/blockchain" className="hover:text-[#18BC9C] transition">
+                  Blockchain
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link to="/results" className="hover:text-[#18BC9C] transition">
+                  Results
+                </Link>
+                <Link to="/blockchain" className="hover:text-[#18BC9C] transition">
+                  Blockchain
+                </Link>
+              </>
+            )}
+          </div>
 
-      <div className="flex gap-4 items-center">
-        {username ? (
-          <>
-            <span className="text-gray-700 font-medium">Welcome, {username}</span>
-            <button
-              onClick={handleLogout}
-              className="bg-red-500 text-white px-5 py-2 rounded-md font-semibold hover:bg-red-600 transition"
-            >
-              Logout
-            </button>
-          </>
-        ) : (
-          <>
-            <Link
-              to="/register"
-              className="bg-[#21978B] text-white px-5 py-2 rounded-md font-semibold hover:bg-[#18BC9C] transition"
-            >
-              Register
-            </Link>
-            <Link
-              to="/login"
-              className="bg-[#21978B] text-white px-5 py-2 rounded-md font-semibold hover:bg-[#18BC9C] transition"
-            >
-              Login
-            </Link>
-          </>
-        )}
+          <div className="flex items-center space-x-4">
+            {username ? (
+              <>
+                <span className="text-sm">Welcome, {username}</span>
+                <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 px-4 py-2 rounded transition">
+                  Logout
+                </button>
+              </>
+            ) : (
+              <div className="space-x-2">
+                <Link to="/login" className="bg-white text-[#21978B] px-4 py-2 rounded hover:bg-gray-100 transition">
+                  Login
+                </Link>
+                <Link to="/register" className="bg-[#18BC9C] px-4 py-2 rounded hover:bg-[#16A085] transition">
+                  Register
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </nav>
   )

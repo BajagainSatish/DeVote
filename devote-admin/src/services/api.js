@@ -20,24 +20,15 @@ class ApiService {
             config.headers.Authorization = `Bearer ${this.token}`
         }
 
-        console.log("Making request to:", url)
-        console.log("Request config:", config)
-        console.log("Request body:", options.body)
-
         try {
             const response = await fetch(url, config)
 
-            console.log("Response status:", response.status)
-            console.log("Response headers:", Object.fromEntries(response.headers.entries()))
-
             // Handle 401 Unauthorized specifically
             if (response.status === 401) {
-                console.log("Unauthorized - clearing token and redirecting to login")
                 this.logout()
                 window.location.href = "/"
                 throw new Error("Session expired. Please login again.")
             }
-
             // Check content type before parsing
             const contentType = response.headers.get("content-type")
             let data
@@ -45,6 +36,7 @@ class ApiService {
             if (contentType && contentType.includes("application/json")) {
                 data = await response.json()
                 console.log("Response data:", data)
+
             } else {
                 const text = await response.text()
                 console.log("Non-JSON response:", text)
@@ -52,7 +44,6 @@ class ApiService {
                 if (!response.ok) {
                     throw new Error(`Server error: ${response.status} ${response.statusText}`)
                 }
-
                 return { message: text }
             }
 
@@ -66,48 +57,45 @@ class ApiService {
             throw error
         }
     }
-
     // Update token when login succeeds
     setToken(token) {
-        this.token = token;
-        localStorage.setItem('adminToken', token);
+        this.token = token
+        localStorage.setItem("adminToken", token)
     }
 
     // Auth methods
     async adminLogin(credentials) {
-        const response = await this.request('/admin/login', {
-            method: 'POST',
+        const response = await this.request("/admin/login", {
+            method: "POST",
             body: JSON.stringify({
                 username: credentials.email,
                 password: credentials.password,
             }),
-        });
+        })
 
         if (response && response.token) {
-            this.setToken(response.token);
-            return response;
+            this.setToken(response.token)
+            return response
         } else {
-            throw new Error('Invalid response format: missing token');
+            throw new Error("Invalid response format: missing token")
         }
     }
 
     logout() {
-        this.token = null;
-        localStorage.removeItem('adminToken');
+        this.token = null
+        localStorage.removeItem("adminToken")
     }
-
     // Check if user is authenticated
     isAuthenticated() {
-        return !!this.token;
+        return !!this.token
     }
 
-    // Rest of your methods remain the same...
+    // Party methods
     async getParties() {
-        return this.request('/parties', { method: 'GET' });
+        return this.request("/parties", { method: "GET" })
     }
 
     async addParty(partyData) {
-        console.log("Adding party with data:", partyData)
         return this.request("/admin/parties", {
             method: "POST",
             body: JSON.stringify(partyData),
@@ -116,103 +104,101 @@ class ApiService {
 
     async updateParty(id, partyData) {
         return this.request(`/admin/parties/${id}`, {
-            method: 'PUT',
+            method: "PUT",
             body: JSON.stringify(partyData),
-        });
+        })
     }
 
     async deleteParty(id) {
         return this.request(`/admin/parties/${id}`, {
-            method: 'DELETE',
-        });
+            method: "DELETE",
+        })
     }
 
+    // Candidate methods
     async addCandidate(candidateData) {
-        return this.request('/admin/candidates', {
-            method: 'POST',
+        return this.request("/admin/candidates", {
+            method: "POST",
             body: JSON.stringify({
                 id: candidateData.id,
                 name: candidateData.name,
                 bio: candidateData.bio,
                 partyId: candidateData.partyId,
-                age: parseInt(candidateData.age) || 0,
+                age: Number.parseInt(candidateData.age) || 0,
                 imageUrl: candidateData.imageUrl || "",
             }),
-        });
+        })
     }
 
     async getCandidates() {
-        return this.request('/candidates', { method: 'GET' });
+        return this.request("/candidates", { method: "GET" })
     }
 
     async updateCandidate(id, candidateData) {
         return this.request(`/admin/candidates/${id}`, {
-            method: 'PUT',
+            method: "PUT",
             body: JSON.stringify({
                 name: candidateData.name,
                 bio: candidateData.bio,
                 partyId: candidateData.partyId,
-                age: parseInt(candidateData.age) || 0,
+                age: Number.parseInt(candidateData.age) || 0,
                 imageUrl: candidateData.imageUrl || "",
             }),
-        });
+        })
     }
 
     async deleteCandidate(id) {
         return this.request(`/admin/candidates/${id}`, {
-            method: 'DELETE',
-        });
+            method: "DELETE",
+        })
     }
 
+    // Election management methods
     async startElection(electionData) {
-        return this.request('/admin/election/start', {
-            method: 'POST',
+        return this.request("/admin/election/start", {
+            method: "POST",
             body: JSON.stringify(electionData),
-        });
+        })
     }
 
     async stopElection() {
-        return this.request('/admin/election/stop', {
-            method: 'POST',
-        });
+        return this.request("/admin/election/stop", {
+            method: "POST",
+        })
     }
 
     async getElectionStatus() {
-        return this.request('/election/status', { method: 'GET' });
+        return this.request("/election/status", { method: "GET" })
     }
 
     async getElectionStatistics() {
-        return this.request('/admin/election/statistics', { method: 'GET' });
+        return this.request("/admin/election/statistics", { method: "GET" })
     }
 
     async getElectionResults() {
-        return this.request('/election/results', { method: 'GET' });
+        return this.request("/election/results", { method: "GET" })
     }
 
-    async getRegisteredUsers() {
-        return this.request('/admin/registered-voters', { method: 'GET' });
-    }
-
-    // User/Voter management methods (don't include addUser since admin shouldn't add voters)
+    // User/Voter management methods
     async getUsers() {
-        return this.request('/admin/users', { method: 'GET' });
+        return this.request("/admin/users", { method: "GET" })
     }
 
     async getUser(id) {
-        return this.request(`/admin/users/${id}`, { method: 'GET' });
+        return this.request(`/admin/users/${id}`, { method: "GET" })
     }
 
     async updateUser(id, userData) {
         return this.request(`/admin/users/${id}`, {
-            method: 'PUT',
+            method: "PUT",
             body: JSON.stringify(userData),
-        });
+        })
     }
 
     async deleteUser(id) {
         return this.request(`/admin/users/${id}`, {
-            method: 'DELETE',
-        });
+            method: "DELETE",
+        })
     }
 
     async getRegisteredVoters() {
@@ -224,6 +210,60 @@ class ApiService {
             method: "DELETE",
         })
     }
+
+    // Blockchain methods
+    async getBlockchain() {
+        return this.request("/blockchain", { method: "GET" })
+    }
+
+    async getTransactions(params = {}) {
+        const queryString = new URLSearchParams(params).toString()
+        const endpoint = queryString ? `/blockchain/transactions?${queryString}` : "/blockchain/transactions"
+        return this.request(endpoint, { method: "GET" })
+    }
+
+    async getBlockchainStats() {
+        return this.request("/blockchain/stats", { method: "GET" })
+    }
+
+    async getTransaction(id) {
+        return this.request(`/blockchain/transaction/${id}`, { method: "GET" })
+    }
+
+    async getBlock(index) {
+        return this.request(`/blockchain/block/${index}`, { method: "GET" })
+    }
+
+    async verifyBlockchain() {
+        return this.request("/blockchain/verify", { method: "GET" })
+    }
+
+    // WebSocket connection for real-time updates
+    connectWebSocket(onMessage) {
+        const wsUrl = `ws://localhost:8080/blockchain/ws`
+        const ws = new WebSocket(wsUrl)
+
+        ws.onopen = () => {
+            console.log("WebSocket connected")
+        }
+
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data)
+            if (onMessage) {
+                onMessage(data)
+            }
+        }
+
+        ws.onerror = (error) => {
+            console.error("WebSocket error:", error)
+        }
+
+        ws.onclose = () => {
+            console.log("WebSocket disconnected")
+        }
+
+        return ws
+    }
 }
 
-export default new ApiService();
+export default new ApiService()

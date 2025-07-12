@@ -9,14 +9,13 @@ export default function ManageVoters() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchVoters()
+    fetchRegisteredVoters()
   }, [])
 
-  const fetchVoters = async () => {
-    setLoading(true)
+  const fetchRegisteredVoters = async () => {
     try {
-      const voters = await apiService.getRegisteredUsers()
-      setRegisteredVoters(voters || [])
+      const data = await apiService.getRegisteredVoters()
+      setRegisteredVoters(data || [])
     } catch (error) {
       toast.error("Failed to fetch registered voters: " + error.message)
     } finally {
@@ -28,10 +27,11 @@ export default function ManageVoters() {
     if (!window.confirm("Are you sure you want to delete this registered voter? This action cannot be undone.")) {
       return
     }
+
     try {
       await apiService.deleteRegisteredVoter(voterID)
       toast.success("Registered voter deleted successfully")
-      fetchVoters() // reload updated list
+      fetchRegisteredVoters() // Refresh the list
     } catch (error) {
       toast.error(error.message || "Failed to delete registered voter")
     }
@@ -49,29 +49,23 @@ export default function ManageVoters() {
     <div className="p-6">
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-[#21978B]">
-          Manage Registered Voters
-        </h2>
-        <div className="text-sm text-gray-600">
-          Total Registered Voters:{" "}
-          <strong>{registeredVoters.length}</strong>
-        </div>
+        <h2 className="text-2xl font-bold text-[#21978B]">Manage Registered Voters</h2>
+        <div className="text-sm text-gray-600">Total Registered Voters: {registeredVoters.length}</div>
       </div>
 
-      {/* Voters Table */}
+      s{/* Voters Table */}
       <div className="bg-white rounded-lg shadow-md">
         <div className="p-4 border-b">
           <h3 className="text-lg font-semibold">Registered Voters</h3>
           <p className="text-sm text-gray-600 mt-1">
-            View and manage voters registered from the public interface.
+            View and manage voters who have registered through the public interface. These voters are loaded from the
+            registered_voters.json file.
           </p>
         </div>
 
         <div className="p-4">
           {registeredVoters.length === 0 ? (
-            <p className="text-gray-600 text-center py-8">
-              No voters registered yet.
-            </p>
+            <p className="text-gray-600 text-center py-8">No voters registered yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse border border-gray-300">
@@ -89,9 +83,7 @@ export default function ManageVoters() {
                 <tbody>
                   {registeredVoters.map((voter) => (
                     <tr key={voter.voterID} className="hover:bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2 font-mono text-sm">
-                        {voter.voterID}
-                      </td>
+                      <td className="border border-gray-300 px-4 py-2 font-mono text-sm">{voter.voterID}</td>
                       <td className="border border-gray-300 px-4 py-2">{voter.username}</td>
                       <td className="border border-gray-300 px-4 py-2">{voter.name}</td>
                       <td className="border border-gray-300 px-4 py-2">{voter.email}</td>
@@ -101,6 +93,7 @@ export default function ManageVoters() {
                         <button
                           onClick={() => handleDelete(voter.voterID)}
                           className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition"
+                          title="Delete registered voter"
                         >
                           Delete
                         </button>
@@ -112,6 +105,17 @@ export default function ManageVoters() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Information Card */}
+      <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h4 className="text-blue-800 font-semibold mb-2">Information</h4>
+        <ul className="text-blue-700 text-sm space-y-1">
+          <li>• Registered voters are loaded from the registered_voters.json file</li>
+          <li>• Voter details (name, DOB, location) are fetched from the voters.json government database</li>
+          <li>• Deleting a voter removes them from the registered_voters.json file</li>
+          <li>• Voters can register themselves through the public registration interface</li>
+        </ul>
       </div>
     </div>
   )

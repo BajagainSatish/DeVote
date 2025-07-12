@@ -12,15 +12,25 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// Global election and blockchain variables (only 1 election for simplicity)
+// Global election and blockchain variables
 var election *contracts.Election
+var chain *blockchain.Blockchain
+var blockchainLogger *BlockchainLogger
 
 func init() {
-	log.Println("Initializing election...")
+	log.Println("Initializing election and blockchain...")
+
+	// Initialize blockchain
+	chain = blockchain.NewBlockchain()
+	blockchainLogger = NewBlockchainLogger(chain)
+
+	// Start WebSocket hub for real-time notifications
+	StartWebSocketHub()
+
+	// Load election
 	loaded, err := contracts.LoadElection()
 	if err != nil {
 		log.Printf("Failed to load election, creating new one: %v", err)
-		// File doesn't exist or failed to load — start fresh
 		election = contracts.NewElection()
 		if saveErr := election.SaveElection(); saveErr != nil {
 			log.Printf("Failed to save new election: %v", saveErr)
@@ -31,12 +41,9 @@ func init() {
 	}
 }
 
-var chain = blockchain.NewBlockchain()
-
 // Updated function to get voter details from the correct registered users file
 func getVoterDetailsFromRegistered(voterID string) (string, string, error) {
 	log.Printf("Looking for voter details for voterID: %s", voterID)
-
 	// Load registered users from the correct path
 	registeredUsers, err := contracts.LoadRegisteredUsers()
 	if err != nil {
@@ -45,13 +52,11 @@ func getVoterDetailsFromRegistered(voterID string) (string, string, error) {
 	}
 
 	log.Printf("Loaded %d registered users", len(registeredUsers))
-
 	// Find the user by voterID
 	for _, user := range registeredUsers {
 		log.Printf("Checking user: VoterID=%s, Username=%s", user.VoterID, user.Username)
 		if user.VoterID == voterID {
 			log.Printf("Found registered user for voterID %s", voterID)
-
 			// Load the voter database to get name and DOB
 			db, err := contracts.LoadVoterDatabase()
 			if err != nil {
@@ -71,7 +76,7 @@ func getVoterDetailsFromRegistered(voterID string) (string, string, error) {
 	return "", "", errors.New("voter not registered")
 }
 
-// HandleVote receives a POST request to cast a vote.
+// HandleVote receives a POST request to cast a vote with blockchain logging
 func HandleVote(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleVote called")
 	w.Header().Set("Content-Type", "application/json")
@@ -156,9 +161,12 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Vote recorded successfully")
 
-	// Create a transaction and add it to the blockchain
-	tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
-	chain.AddBlock([]blockchain.Transaction{tx})
+	// // Create a transaction and add it to the blockchain
+	// tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
+	// chain.AddBlock([]blockchain.Transaction{tx})
+
+	// Log to blockchain
+	blockchainLogger.LogVote(req.VoterID, req.CandidateID, r)
 
 	// Save updated election state
 	if saveErr := election.SaveElection(); saveErr != nil {
@@ -251,7 +259,7 @@ func HandleGetCandidate(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleGetCandidate completed successfully")
 }
 
-// Update HandleAddCandidate to use partyID
+// HandleAddCandidate with blockchain logging
 func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleAddCandidate called")
 	w.Header().Set("Content-Type", "application/json")
@@ -281,9 +289,6 @@ func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Received candidate data: ID=%s, Name=%s, Bio=%s, PartyID=%s, Age=%d, ImageURL=%s",
-		req.ID, req.Name, req.Bio, req.PartyID, req.Age, req.ImageURL)
-
 	if req.ID == "" || req.Name == "" {
 		log.Println("Missing required fields: ID or Name")
 		w.WriteHeader(http.StatusBadRequest)
@@ -291,7 +296,6 @@ func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Calling election.AddCandidate...")
 	err := election.AddCandidate(req.ID, req.Name, req.Bio, req.PartyID, req.Age, req.ImageURL)
 	if err != nil {
 		log.Printf("Failed to add candidate: %v", err)
@@ -299,7 +303,16 @@ func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	log.Println("Candidate added successfully, now saving...")
+
+	// Log to blockchain
+	details := map[string]interface{}{
+		"name":     req.Name,
+		"bio":      req.Bio,
+		"partyID":  req.PartyID,
+		"age":      req.Age,
+		"imageURL": req.ImageURL,
+	}
+	blockchainLogger.LogCandidateAction("add", "admin", req.ID, req.Name, details, r)
 
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -310,18 +323,14 @@ func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 	log.Println("Election saved successfully")
 
 	w.WriteHeader(http.StatusCreated)
-	response := map[string]string{
+	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
 		"message": "Candidate added successfully",
-	}
+	})
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Failed to encode response: %v", err)
-	}
-	log.Println("HandleAddCandidate completed successfully")
 }
 
-// Update HandleUpdateCandidate to use partyID
+// HandleUpdateCandidate with blockchain logging
 func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleUpdateCandidate called")
 	w.Header().Set("Content-Type", "application/json")
@@ -337,14 +346,10 @@ func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 
 	var req Req
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Failed to decode request body: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON format"})
 		return
 	}
-
-	log.Printf("Received candidate update data: ID=%s, Name=%s, Bio=%s, PartyID=%s, Age=%d, ImageURL=%s",
-		id, req.Name, req.Bio, req.PartyID, req.Age, req.ImageURL)
 
 	err := election.UpdateCandidate(id, req.Name, req.Bio, req.PartyID, req.Age, req.ImageURL)
 	if err != nil {
@@ -354,7 +359,16 @@ func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Candidate updated successfully, now saving...")
+	// Log to blockchain
+	details := map[string]interface{}{
+		"name":     req.Name,
+		"bio":      req.Bio,
+		"partyID":  req.PartyID,
+		"age":      req.Age,
+		"imageURL": req.ImageURL,
+	}
+	blockchainLogger.LogCandidateAction("update", "admin", id, req.Name, details, r)
+
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -366,13 +380,15 @@ func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "candidate updated"})
 }
 
-// Update HandleDeleteCandidate function
+// HandleDeleteCandidate with blockchain logging
 func HandleDeleteCandidate(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleDeleteCandidate called")
 	w.Header().Set("Content-Type", "application/json")
 
 	id := mux.Vars(r)["id"]
-	err := election.RemoveCandidate(id)
+
+	// Get candidate info before deletion
+	candidate, err := election.GetCandidate(id)
 	if err != nil {
 		log.Printf("Failed to delete candidate: %v", err)
 		w.WriteHeader(http.StatusNotFound)
@@ -380,18 +396,25 @@ func HandleDeleteCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Record removal in blockchain
-	tx := blockchain.NewTransaction("admin", id, "REMOVE_CANDIDATE")
-	chain.AddBlock([]blockchain.Transaction{tx})
+	err = election.RemoveCandidate(id)
+	if err != nil {
+		w.WriteHeader(http.StatusNotFound)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
 
-	log.Println("Candidate removed successfully, now saving...")
+	// Log to blockchain
+	details := map[string]interface{}{
+		"name":    candidate.Name,
+		"partyID": candidate.PartyID,
+	}
+	blockchainLogger.LogCandidateAction("delete", "admin", id, candidate.Name, details, r)
+
 	if saveErr := election.SaveElection(); saveErr != nil {
-		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save election data"})
 		return
 	}
-	log.Println("Election saved successfully")
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "candidate removed"})
 }
@@ -425,6 +448,7 @@ func HandleListParties(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleListParties completed successfully")
 }
 
+// HandleAddParty with blockchain logging
 func HandleAddParty(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleAddParty called")
 	w.Header().Set("Content-Type", "application/json")
@@ -446,50 +470,43 @@ func HandleAddParty(w http.ResponseWriter, r *http.Request) {
 
 	var req Req
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Failed to decode request body: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON format"})
 		return
 	}
 
-	log.Printf("Received party data: ID=%s, Name=%s, Description=%s, Color=%s",
-		req.ID, req.Name, req.Description, req.Color)
-
 	if req.ID == "" || req.Name == "" {
-		log.Println("Missing required fields: ID or Name")
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "ID and Name are required"})
 		return
 	}
 
-	log.Println("Calling election.AddParty...")
 	err := election.AddParty(req.ID, req.Name, req.Description, req.Color)
 	if err != nil {
-		log.Printf("Failed to add party: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	log.Println("Party added successfully, now saving...")
+
+	// Log to blockchain
+	details := map[string]interface{}{
+		"name":        req.Name,
+		"description": req.Description,
+		"color":       req.Color,
+	}
+	blockchainLogger.LogPartyAction("add", "admin", req.ID, req.Name, details, r)
 
 	if saveErr := election.SaveElection(); saveErr != nil {
-		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save election data"})
 		return
 	}
-	log.Println("Election saved successfully")
 
 	w.WriteHeader(http.StatusCreated)
-	response := map[string]string{
+	json.NewEncoder(w).Encode(map[string]string{
 		"status":  "success",
 		"message": "Party added successfully",
-	}
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		log.Printf("Failed to encode response: %v", err)
-	}
-	log.Println("HandleAddParty completed successfully")
+	})
 }
 
 func HandleUpdateParty(w http.ResponseWriter, r *http.Request) {
@@ -505,31 +522,31 @@ func HandleUpdateParty(w http.ResponseWriter, r *http.Request) {
 
 	var req Req
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Failed to decode request body: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON format"})
 		return
 	}
 
-	log.Printf("Received party update data: ID=%s, Name=%s, Description=%s, Color=%s",
-		id, req.Name, req.Description, req.Color)
-
 	err := election.UpdateParty(id, req.Name, req.Description, req.Color)
 	if err != nil {
-		log.Printf("Failed to update party: %v", err)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	log.Println("Party updated successfully, now saving...")
+	// Log to blockchain
+	details := map[string]interface{}{
+		"name":        req.Name,
+		"description": req.Description,
+		"color":       req.Color,
+	}
+	blockchainLogger.LogPartyAction("update", "admin", id, req.Name, details, r)
+
 	if saveErr := election.SaveElection(); saveErr != nil {
-		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save election data"})
 		return
 	}
-	log.Println("Election saved successfully")
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "party updated"})
 }
@@ -539,22 +556,35 @@ func HandleDeleteParty(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
 	id := mux.Vars(r)["id"]
+
+	// Get party info before deletion
+	parties := election.ListParties()
+	var partyName string
+	for _, party := range parties {
+		if party.ID == id {
+			partyName = party.Name
+			break
+		}
+	}
+
 	err := election.DeleteParty(id)
 	if err != nil {
-		log.Printf("Failed to delete party: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	log.Println("Party deleted successfully, now saving...")
+	// Log to blockchain
+	details := map[string]interface{}{
+		"name": partyName,
+	}
+	blockchainLogger.LogPartyAction("delete", "admin", id, partyName, details, r)
+
 	if saveErr := election.SaveElection(); saveErr != nil {
-		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save election data"})
 		return
 	}
-	log.Println("Election saved successfully")
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "party deleted"})
 }
@@ -571,57 +601,63 @@ func HandleStartElection(w http.ResponseWriter, r *http.Request) {
 
 	var req Req
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		log.Printf("Failed to decode request body: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON format"})
 		return
 	}
 
 	if req.DurationHours <= 0 {
-		req.DurationHours = 24 // Default 24 hours
+		req.DurationHours = 24
 	}
 
 	duration := time.Duration(req.DurationHours) * time.Hour
 	err := election.StartElection(req.Description, duration)
 	if err != nil {
-		log.Printf("Failed to start election: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	log.Println("Election started successfully, now saving...")
+	// Log to blockchain
+	details := map[string]interface{}{
+		"description":   req.Description,
+		"durationHours": req.DurationHours,
+		"endTime":       time.Now().Add(duration),
+	}
+	blockchainLogger.LogElectionAction("start", "admin", req.Description, details, r)
+
 	if saveErr := election.SaveElection(); saveErr != nil {
-		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save election data"})
 		return
 	}
-	log.Println("Election saved successfully")
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "election started"})
 }
 
+// HandleStopElection with blockchain logging
 func HandleStopElection(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleStopElection called")
 	w.Header().Set("Content-Type", "application/json")
 
 	err := election.StopElection()
 	if err != nil {
-		log.Printf("Failed to stop election: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
 
-	log.Println("Election stopped successfully, now saving...")
+	// Log to blockchain
+	details := map[string]interface{}{
+		"stoppedAt": time.Now(),
+	}
+	blockchainLogger.LogElectionAction("stop", "admin", "Election manually stopped", details, r)
+
 	if saveErr := election.SaveElection(); saveErr != nil {
-		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save election data"})
 		return
 	}
-	log.Println("Election saved successfully")
 
 	json.NewEncoder(w).Encode(map[string]string{"status": "election stopped"})
 }
@@ -954,24 +990,22 @@ func HandleGetRegisteredVoters(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleGetRegisteredVoters completed successfully")
 }
 
-// New handler for deleting registered voters
+// HandleDeleteRegisteredVoter with blockchain logging
 func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleDeleteRegisteredVoter called")
 	w.Header().Set("Content-Type", "application/json")
 
 	voterID := mux.Vars(r)["voterID"]
-	log.Printf("Attempting to delete registered voter: %s", voterID)
-
 	// Load current registered users
 	registeredUsers, err := contracts.LoadRegisteredUsers()
 	if err != nil {
-		log.Printf("Failed to load registered users: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to load registered users"})
 		return
 	}
 
-	// Find and remove the user
+	// Find voter info before deletion
+	var voterEmail string
 	found := false
 	updatedUsers := make([]contracts.RegisteredUser, 0, len(registeredUsers))
 
@@ -980,12 +1014,11 @@ func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
 			updatedUsers = append(updatedUsers, user)
 		} else {
 			found = true
-			log.Printf("Found and removing user: %s", user.Username)
+			voterEmail = user.Email
 		}
 	}
 
 	if !found {
-		log.Printf("Voter ID %s not found in registered users", voterID)
 		w.WriteHeader(http.StatusNotFound)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Voter not found"})
 		return
@@ -993,12 +1026,19 @@ func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
 
 	// Save updated list
 	if err := contracts.SaveRegisteredUsers(updatedUsers); err != nil {
-		log.Printf("Failed to save updated registered users: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save updated registered users"})
 		return
 	}
 
-	log.Printf("Successfully deleted registered voter: %s", voterID)
-	json.NewEncoder(w).Encode(map[string]string{"status": "voter deleted", "message": "Registered voter deleted successfully"})
+	// Log to blockchain
+	details := map[string]interface{}{
+		"email": voterEmail,
+	}
+	blockchainLogger.LogUserAction("delete_voter", "admin", voterID, details, r)
+
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "voter deleted",
+		"message": "Registered voter deleted successfully",
+	})
 }

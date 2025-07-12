@@ -73,6 +73,16 @@ const DefaultLayout = ({ children }) => {
             >
               Manage Voters
             </NavLink>
+            <NavLink
+              to="/blockchain"
+              className={({ isActive }) =>
+                `block px-4 py-2 rounded hover:bg-[#21978B] hover:text-white ${
+                  isActive ? "bg-[#21978B] text-white" : "text-gray-800"
+                }`
+              }
+            >
+              Blockchain Explorer
+            </NavLink>
           </nav>
         </aside>
         {/* main content area  */}
