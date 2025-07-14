@@ -19,5 +19,12 @@
         "dob": "1991-01-05",
         "location": "Kathmandu",
         "email": "three@hero.com"
+    },
+    {
+        "VoterID": "v4",
+        "name": "Satish Bajagain",
+        "dob": "2004-01-18",
+        "location": "Lalitpur",
+        "email": "sthbjgn@gmail.com"
     }
 ]

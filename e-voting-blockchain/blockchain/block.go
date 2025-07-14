@@ -1,43 +1,95 @@
 package blockchain
 
 import (
-	"crypto/sha256" // Package used to generate secure hash using SHA-256 algorithm
-	"encoding/hex"  // Converts hash bytes into readable hexadecimal string
-	"strconv"       // Used to convert int to string (e.g., Index to string)
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"time"
 )
 
-// Block represents one unit in the blockchain.
-// A block stores multiple transactions and links to the previous block using its hash.
+// Block represents a single block in the blockchain
 type Block struct {
-	Index        int           // Position of the block in the chain (0 = genesis block)
-	Timestamp    string        // Time at which the block was created
-	Transactions []Transaction // Slice (list) of transactions contained in this block
-	PrevHash     string        // Hash of the previous block (links the chain)
-	Hash         string        // Hash of the current block (used for integrity)
+	Index        int           `json:"index"`
+	Timestamp    string        `json:"timestamp"`
+	PrevHash     string        `json:"prevHash"`
+	Hash         string        `json:"hash"`
+	Transactions []Transaction `json:"transactions"`
+	CreatedAt    time.Time     `json:"createdAt"`
 }
 
-// GenerateHash calculates the SHA-256 hash of this block's contents.
-// This ensures the block’s data has not been tampered with.
+// NewBlock creates a new block with proper timestamp
+func NewBlock(index int, prevHash string, transactions []Transaction) Block {
+	now := time.Now()
+	block := Block{
+		Index:        index,
+		Timestamp:    now.Format(time.RFC3339),
+		PrevHash:     prevHash,
+		Transactions: transactions,
+		CreatedAt:    now,
+	}
+	block.GenerateHash()
+	return block
+}
+
+// GenerateHash calculates and sets the hash for this block
 func (b *Block) GenerateHash() {
-	// Concatenate block data as a single string
-	data := strconv.Itoa(b.Index) + b.Timestamp + b.PrevHash + b.TransactionData()
-
-	// Create SHA-256 hash of the data
-	hash := sha256.Sum256([]byte(data))
-
-	// Convert byte array to hexadecimal string
-	b.Hash = hex.EncodeToString(hash[:])
-}
-
-// TransactionData combines all transaction info into a single string.
-// This is used as part of the data to generate the block's hash.
-func (b *Block) TransactionData() string {
-	var txData string
-
-	// For each transaction, append all fields to a string
-	for _, tx := range b.Transactions {
-		txData += tx.ID + tx.Sender + tx.Receiver + tx.Payload
+	// Create a copy of the block without the hash field for calculation
+	blockData := struct {
+		Index        int           `json:"index"`
+		Timestamp    string        `json:"timestamp"`
+		PrevHash     string        `json:"prevHash"`
+		Transactions []Transaction `json:"transactions"`
+	}{
+		Index:        b.Index,
+		Timestamp:    b.Timestamp,
+		PrevHash:     b.PrevHash,
+		Transactions: b.Transactions,
 	}
 
-	return txData
+	blockBytes, _ := json.Marshal(blockData)
+	hash := sha256.Sum256(blockBytes)
+	b.Hash = fmt.Sprintf("%x", hash)
+}
+
+// CalculateHash returns the hash without modifying the block
+func (b Block) CalculateHash() string {
+	// Create a copy of the block without the hash field for calculation
+	blockData := struct {
+		Index        int           `json:"index"`
+		Timestamp    string        `json:"timestamp"`
+		PrevHash     string        `json:"prevHash"`
+		Transactions []Transaction `json:"transactions"`
+	}{
+		Index:        b.Index,
+		Timestamp:    b.Timestamp,
+		PrevHash:     b.PrevHash,
+		Transactions: b.Transactions,
+	}
+
+	blockBytes, _ := json.Marshal(blockData)
+	hash := sha256.Sum256(blockBytes)
+	return fmt.Sprintf("%x", hash)
+}
+
+// GetTimestamp returns the parsed timestamp
+func (b Block) GetTimestamp() time.Time {
+	if b.CreatedAt.IsZero() {
+		// Fallback to parsing the timestamp string
+		if t, err := time.Parse(time.RFC3339, b.Timestamp); err == nil {
+			return t
+		}
+		// If parsing fails, return current time
+		return time.Now()
+	}
+	return b.CreatedAt
+}
+
+// GetFormattedTimestamp returns a human-readable timestamp
+func (b Block) GetFormattedTimestamp() string {
+	return b.GetTimestamp().Format("2006-01-02 15:04:05 MST")
+}
+
+// IsValid checks if the block is valid
+func (b Block) IsValid() bool {
+	return b.Hash == b.CalculateHash()
 }

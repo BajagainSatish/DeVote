@@ -1,108 +1,85 @@
 package blockchain
 
 import (
-	"crypto/sha256"
+	"crypto/rand"
 	"encoding/hex"
-	"encoding/json"
 	"time"
 )
 
-// TransactionType represents different types of blockchain transactions
-// e.g. Transaction represents one vote in the system.
-// e.g. A transaction is created when a voter casts a vote to a candidate.
+// TransactionType represents the type of transaction
 type TransactionType string
 
 const (
-	// Voting transactions
-	TxTypeVote          TransactionType = "VOTE"
-	TxTypeVoterRegister TransactionType = "VOTER_REGISTER"
-
-	// Admin transactions
+	TxTypeVote            TransactionType = "VOTE"
+	TxTypeVoterRegister   TransactionType = "VOTER_REGISTER"
 	TxTypeAddCandidate    TransactionType = "ADD_CANDIDATE"
 	TxTypeUpdateCandidate TransactionType = "UPDATE_CANDIDATE"
 	TxTypeDeleteCandidate TransactionType = "DELETE_CANDIDATE"
-
-	TxTypeAddParty    TransactionType = "ADD_PARTY"
-	TxTypeUpdateParty TransactionType = "UPDATE_PARTY"
-	TxTypeDeleteParty TransactionType = "DELETE_PARTY"
-
-	// Election management
-	TxTypeStartElection TransactionType = "START_ELECTION"
-	TxTypeStopElection  TransactionType = "STOP_ELECTION"
-
-	// User management
-	TxTypeAddUser     TransactionType = "ADD_USER"
-	TxTypeUpdateUser  TransactionType = "UPDATE_USER"
-	TxTypeDeleteUser  TransactionType = "DELETE_USER"
-	TxTypeDeleteVoter TransactionType = "DELETE_VOTER"
-
-	// System events
-	TxTypeAdminLogin TransactionType = "ADMIN_LOGIN"
-	TxTypeUserLogin  TransactionType = "USER_LOGIN"
+	TxTypeAddParty        TransactionType = "ADD_PARTY"
+	TxTypeUpdateParty     TransactionType = "UPDATE_PARTY"
+	TxTypeDeleteParty     TransactionType = "DELETE_PARTY"
+	TxTypeStartElection   TransactionType = "START_ELECTION"
+	TxTypeStopElection    TransactionType = "STOP_ELECTION"
+	TxTypeDeleteVoter     TransactionType = "DELETE_VOTER"
+	TxTypeAdminLogin      TransactionType = "ADMIN_LOGIN"
+	TxTypeUserLogin       TransactionType = "USER_LOGIN"
+	TxTypeAddUser         TransactionType = "ADD_USER"
+	TxTypeUpdateUser      TransactionType = "UPDATE_USER"
+	TxTypeDeleteUser      TransactionType = "DELETE_USER"
 )
 
-// TransactionData contains detailed information about the transaction
+// TransactionData contains the actual transaction information
 type TransactionData struct {
 	Type      TransactionType        `json:"type"`
-	Actor     string                 `json:"actor"`   // Who performed the action
-	Target    string                 `json:"target"`  // What was affected
-	Action    string                 `json:"action"`  // Description of action
-	Details   map[string]interface{} `json:"details"` // Additional data
+	Actor     string                 `json:"actor"`
+	Target    string                 `json:"target"`
+	Action    string                 `json:"action"`
 	Timestamp time.Time              `json:"timestamp"`
 	IPAddress string                 `json:"ipAddress,omitempty"`
+	Details   map[string]interface{} `json:"details,omitempty"`
 }
 
-// Transaction represents one action in the system
+// Transaction represents a single transaction in the blockchain
 type Transaction struct {
-	ID       string          `json:"id"`       // Unique identifier (hash)
-	Sender   string          `json:"sender"`   // The actor performing the action
-	Receiver string          `json:"receiver"` // The target of the action
-	Payload  string          `json:"payload"`  // Transaction type
-	Data     TransactionData `json:"data"`     // Detailed transaction data
+	ID   string          `json:"id"`
+	Data TransactionData `json:"data"`
 }
 
-// NewTransaction creates and returns a new transaction with detailed data
+// NewTransaction creates a new transaction with IP address
 func NewTransaction(txType TransactionType, actor, target, action string, details map[string]interface{}, ipAddress string) Transaction {
-	data := TransactionData{
-		Type:      txType,
-		Actor:     actor,
-		Target:    target,
-		Action:    action,
-		Details:   details,
-		Timestamp: time.Now(),
-		IPAddress: ipAddress,
+	return Transaction{
+		ID: generateTransactionID(),
+		Data: TransactionData{
+			Type:      txType,
+			Actor:     actor,
+			Target:    target,
+			Action:    action,
+			Timestamp: time.Now(),
+			IPAddress: ipAddress,
+			Details:   details,
+		},
 	}
-
-	// Create transaction
-	tx := Transaction{
-		Sender:   actor,
-		Receiver: target,
-		Payload:  string(txType),
-		Data:     data,
-	}
-
-	// Generate hash ID
-	dataBytes, _ := json.Marshal(tx)
-	hash := sha256.Sum256(dataBytes)
-	tx.ID = hex.EncodeToString(hash[:])
-
-	return tx
 }
 
-// NewSimpleTransaction creates a simple transaction (for backward compatibility)
-func NewSimpleTransaction(sender, receiver, payload string) Transaction {
-	return NewTransaction(
-		TransactionType(payload),
-		sender,
-		receiver,
-		payload,
-		map[string]interface{}{},
-		"",
-	)
+// NewTransactionWithoutIP creates a new transaction without IP address (for backward compatibility)
+func NewTransactionWithoutIP(txType TransactionType, actor, target, action string, details map[string]interface{}) Transaction {
+	return NewTransaction(txType, actor, target, action, details, "")
 }
 
-// GetTransactionSummary returns a human-readable summary of the transaction
-func (t *Transaction) GetTransactionSummary() string {
+// generateTransactionID creates a unique transaction ID
+func generateTransactionID() string {
+	bytes := make([]byte, 16)
+	rand.Read(bytes)
+	return hex.EncodeToString(bytes)
+}
+
+// GetFormattedTimestamp returns a human-readable timestamp
+func (t Transaction) GetFormattedTimestamp() string {
+	return t.Data.Timestamp.Format("2006-01-02 15:04:05 MST")
+}
+
+// GetSummary returns a human-readable summary of the transaction
+func (t Transaction) GetSummary() string {
 	switch t.Data.Type {
 	case TxTypeVote:
 		return t.Data.Actor + " voted for " + t.Data.Target

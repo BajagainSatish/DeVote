@@ -3,8 +3,10 @@ package server
 import (
 	"e-voting-blockchain/blockchain"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -173,6 +175,20 @@ func HandleGetBlockchainStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// HandleGetIntegrityReport returns detailed blockchain integrity information
+func HandleGetIntegrityReport(w http.ResponseWriter, r *http.Request) {
+	log.Println("HandleGetIntegrityReport called")
+	w.Header().Set("Content-Type", "application/json")
+
+	report := chain.GetIntegrityReport()
+
+	if err := json.NewEncoder(w).Encode(report); err != nil {
+		log.Printf("Failed to encode integrity report: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to encode integrity report"})
+	}
+}
+
 // HandleGetTransaction returns a specific transaction by ID
 func HandleGetTransaction(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleGetTransaction called")
@@ -241,13 +257,15 @@ func HandleVerifyBlockchain(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleVerifyBlockchain called")
 	w.Header().Set("Content-Type", "application/json")
 
-	stats := chain.GetStats()
+	report := chain.GetIntegrityReport()
 
 	response := map[string]interface{}{
-		"valid":             stats.ChainIntegrity,
-		"totalBlocks":       stats.TotalBlocks,
-		"totalTransactions": stats.TotalTransactions,
-		"verifiedAt":        time.Now(),
+		"valid":             report.IsValid,
+		"totalBlocks":       report.TotalBlocks,
+		"validBlocks":       report.ValidBlocks,
+		"invalidBlocks":     report.InvalidBlocks,
+		"verifiedAt":        report.CheckedAt,
+		"totalTransactions": len(chain.GetAllTransactions()),
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -255,4 +273,74 @@ func HandleVerifyBlockchain(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to encode verification result"})
 	}
+}
+
+// HandleSystemReset handles complete system reset (admin only)
+func HandleSystemReset(w http.ResponseWriter, r *http.Request) {
+	log.Println("HandleSystemReset called")
+	w.Header().Set("Content-Type", "application/json")
+
+	// This should be protected by admin authentication in production
+	// For now, we'll implement a basic reset
+
+	resetResult := performSystemReset()
+
+	if err := json.NewEncoder(w).Encode(resetResult); err != nil {
+		log.Printf("Failed to encode reset result: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to encode reset result"})
+	}
+}
+
+// SystemResetResult contains the result of a system reset
+type SystemResetResult struct {
+	Success      bool      `json:"success"`
+	DeletedFiles []string  `json:"deletedFiles"`
+	Errors       []string  `json:"errors"`
+	ResetAt      time.Time `json:"resetAt"`
+	Message      string    `json:"message"`
+}
+
+// performSystemReset performs the actual system reset
+func performSystemReset() SystemResetResult {
+	result := SystemResetResult{
+		Success:      true,
+		DeletedFiles: []string{},
+		Errors:       []string{},
+		ResetAt:      time.Now(),
+	}
+
+	// List of files to delete
+	filesToDelete := []string{
+		"chain.db",
+		"blockchain.db",
+		"blocks.json",
+		"election.json",
+		"candidates.json",
+		"parties.json",
+		"registered_voters.json",
+		"voters.json",
+		"users.json",
+		"admin_sessions.json",
+		"admin.json",
+	}
+
+	for _, file := range filesToDelete {
+		if err := os.Remove(file); err != nil {
+			if !os.IsNotExist(err) {
+				result.Errors = append(result.Errors, fmt.Sprintf("Failed to delete %s: %v", file, err))
+				result.Success = false
+			}
+		} else {
+			result.DeletedFiles = append(result.DeletedFiles, file)
+		}
+	}
+
+	if result.Success {
+		result.Message = "System reset completed successfully. All data has been cleared."
+	} else {
+		result.Message = "System reset completed with some errors. Check the errors list for details."
+	}
+
+	return result
 }

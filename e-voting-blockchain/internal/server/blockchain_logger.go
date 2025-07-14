@@ -49,16 +49,18 @@ func (bl *BlockchainLogger) LogVoterRegistration(voterID, email string, r *http.
 // LogCandidateAction logs candidate-related actions
 func (bl *BlockchainLogger) LogCandidateAction(action, adminUser, candidateID, candidateName string, details map[string]interface{}, r *http.Request) {
 	var txType blockchain.TransactionType
+	var actionDesc string
+
 	switch action {
 	case "add":
 		txType = blockchain.TxTypeAddCandidate
-		action = "Added candidate"
+		actionDesc = "Added candidate"
 	case "update":
 		txType = blockchain.TxTypeUpdateCandidate
-		action = "Updated candidate"
+		actionDesc = "Updated candidate"
 	case "delete":
 		txType = blockchain.TxTypeDeleteCandidate
-		action = "Deleted candidate"
+		actionDesc = "Deleted candidate"
 	}
 
 	if details == nil {
@@ -67,22 +69,24 @@ func (bl *BlockchainLogger) LogCandidateAction(action, adminUser, candidateID, c
 	details["candidateID"] = candidateID
 	details["candidateName"] = candidateName
 
-	bl.LogTransaction(txType, adminUser, candidateID, action, details, r)
+	bl.LogTransaction(txType, adminUser, candidateID, actionDesc, details, r)
 }
 
 // LogPartyAction logs party-related actions
 func (bl *BlockchainLogger) LogPartyAction(action, adminUser, partyID, partyName string, details map[string]interface{}, r *http.Request) {
 	var txType blockchain.TransactionType
+	var actionDesc string
+
 	switch action {
 	case "add":
 		txType = blockchain.TxTypeAddParty
-		action = "Added party"
+		actionDesc = "Added party"
 	case "update":
 		txType = blockchain.TxTypeUpdateParty
-		action = "Updated party"
+		actionDesc = "Updated party"
 	case "delete":
 		txType = blockchain.TxTypeDeleteParty
-		action = "Deleted party"
+		actionDesc = "Deleted party"
 	}
 
 	if details == nil {
@@ -91,19 +95,21 @@ func (bl *BlockchainLogger) LogPartyAction(action, adminUser, partyID, partyName
 	details["partyID"] = partyID
 	details["partyName"] = partyName
 
-	bl.LogTransaction(txType, adminUser, partyID, action, details, r)
+	bl.LogTransaction(txType, adminUser, partyID, actionDesc, details, r)
 }
 
 // LogElectionAction logs election management actions
 func (bl *BlockchainLogger) LogElectionAction(action, adminUser, description string, details map[string]interface{}, r *http.Request) {
 	var txType blockchain.TransactionType
+	var actionDesc string
+
 	switch action {
 	case "start":
 		txType = blockchain.TxTypeStartElection
-		action = "Started election"
+		actionDesc = "Started election"
 	case "stop":
 		txType = blockchain.TxTypeStopElection
-		action = "Stopped election"
+		actionDesc = "Stopped election"
 	}
 
 	if details == nil {
@@ -111,48 +117,50 @@ func (bl *BlockchainLogger) LogElectionAction(action, adminUser, description str
 	}
 	details["description"] = description
 
-	bl.LogTransaction(txType, adminUser, "election", action, details, r)
+	bl.LogTransaction(txType, adminUser, "election", actionDesc, details, r)
 }
 
 // LogUserAction logs user management actions
 func (bl *BlockchainLogger) LogUserAction(action, adminUser, userID string, details map[string]interface{}, r *http.Request) {
 	var txType blockchain.TransactionType
+	var actionDesc string
+
 	switch action {
 	case "add":
 		txType = blockchain.TxTypeAddUser
-		action = "Added user"
+		actionDesc = "Added user"
 	case "update":
 		txType = blockchain.TxTypeUpdateUser
-		action = "Updated user"
+		actionDesc = "Updated user"
 	case "delete":
 		txType = blockchain.TxTypeDeleteUser
-		action = "Deleted user"
+		actionDesc = "Deleted user"
 	case "delete_voter":
 		txType = blockchain.TxTypeDeleteVoter
-		action = "Deleted registered voter"
+		actionDesc = "Deleted registered voter"
 	}
 
-	bl.LogTransaction(txType, adminUser, userID, action, details, r)
+	bl.LogTransaction(txType, adminUser, userID, actionDesc, details, r)
 }
 
 // LogLogin logs login attempts
 func (bl *BlockchainLogger) LogLogin(userType, username string, success bool, r *http.Request) {
 	var txType blockchain.TransactionType
-	action := "Login attempt"
+	var actionDesc string
 
 	if userType == "admin" {
 		txType = blockchain.TxTypeAdminLogin
 		if success {
-			action = "Admin login successful"
+			actionDesc = "Admin login successful"
 		} else {
-			action = "Admin login failed"
+			actionDesc = "Admin login failed"
 		}
 	} else {
 		txType = blockchain.TxTypeUserLogin
 		if success {
-			action = "User login successful"
+			actionDesc = "User login successful"
 		} else {
-			action = "User login failed"
+			actionDesc = "User login failed"
 		}
 	}
 
@@ -161,7 +169,7 @@ func (bl *BlockchainLogger) LogLogin(userType, username string, success bool, r 
 		"userType": userType,
 	}
 
-	bl.LogTransaction(txType, username, "system", action, details, r)
+	bl.LogTransaction(txType, username, "system", actionDesc, details, r)
 }
 
 // getClientIP extracts the client IP address from the request
@@ -185,5 +193,6 @@ func getClientIP(r *http.Request) string {
 	if strings.Contains(ip, ":") {
 		ip = strings.Split(ip, ":")[0]
 	}
+
 	return ip
 }

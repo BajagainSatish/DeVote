@@ -10,7 +10,7 @@ import (
 type Blockchain struct {
 	Chain     []Block `json:"chain"`
 	mutex     sync.RWMutex
-	listeners []chan Transaction // For real-time notifications
+	listeners []chan Transaction
 }
 
 // BlockchainStats provides statistics about the blockchain
@@ -20,27 +20,48 @@ type BlockchainStats struct {
 	TransactionTypes  map[TransactionType]int `json:"transactionTypes"`
 	LastBlockTime     time.Time               `json:"lastBlockTime"`
 	ChainIntegrity    bool                    `json:"chainIntegrity"`
+	InvalidBlocks     []int                   `json:"invalidBlocks,omitempty"`
+}
+
+// IntegrityReport provides detailed integrity information
+type IntegrityReport struct {
+	IsValid       bool               `json:"isValid"`
+	TotalBlocks   int                `json:"totalBlocks"`
+	ValidBlocks   int                `json:"validBlocks"`
+	InvalidBlocks []InvalidBlockInfo `json:"invalidBlocks"`
+	CheckedAt     time.Time          `json:"checkedAt"`
+}
+
+// InvalidBlockInfo contains information about invalid blocks
+type InvalidBlockInfo struct {
+	Index        int    `json:"index"`
+	Reason       string `json:"reason"`
+	ExpectedHash string `json:"expectedHash"`
+	ActualHash   string `json:"actualHash"`
 }
 
 // CreateGenesisBlock creates the very first block in the chain
-// This block has no previous block, so PrevHash is empty.
 func CreateGenesisBlock() Block {
+	now := time.Now()
 	genesis := Block{
 		Index:        0,
-		Timestamp:    time.Now().String(), // Capture current time
+		Timestamp:    now.Format(time.RFC3339),
 		PrevHash:     "",
-		Transactions: []Transaction{}, // Empty transaction list
+		Transactions: []Transaction{},
+		CreatedAt:    now,
 	}
 	genesis.GenerateHash()
+
+	log.Printf("Genesis block created at: %s", genesis.GetFormattedTimestamp())
 	return genesis
 }
 
 // NewBlockchain creates a new blockchain instance
 func NewBlockchain() *Blockchain {
-	InitDB() // Open DB
+	InitDB()
 	blocks, err := LoadBlocks()
 	if err != nil || len(blocks) == 0 {
-		// No blocks in DB, create genesis
+		log.Println("Creating new blockchain with genesis block")
 		genesis := CreateGenesisBlock()
 		SaveBlock(genesis)
 		return &Blockchain{
@@ -48,28 +69,30 @@ func NewBlockchain() *Blockchain {
 			listeners: make([]chan Transaction, 0),
 		}
 	}
+
+	log.Printf("Loaded existing blockchain with %d blocks", len(blocks))
 	return &Blockchain{
 		Chain:     blocks,
 		listeners: make([]chan Transaction, 0),
 	}
 }
 
-// AddBlock adds a new block to the blockchain with thread safety
+// AddBlock adds a new block to the blockchain with proper timestamp
 func (bc *Blockchain) AddBlock(transactions []Transaction) {
 	bc.mutex.Lock()
 	defer bc.mutex.Unlock()
 
-	lastBlock := bc.Chain[len(bc.Chain)-1]
-	newBlock := Block{
-		Index:        len(bc.Chain),
-		Timestamp:    time.Now().String(),
-		PrevHash:     lastBlock.Hash,
-		Transactions: transactions,
+	if len(bc.Chain) == 0 {
+		log.Println("Warning: Empty blockchain, creating genesis block first")
+		genesis := CreateGenesisBlock()
+		bc.Chain = append(bc.Chain, genesis)
+		SaveBlock(genesis)
 	}
-	newBlock.GenerateHash()
+
+	lastBlock := bc.Chain[len(bc.Chain)-1]
+	newBlock := NewBlock(len(bc.Chain), lastBlock.Hash, transactions)
 
 	bc.Chain = append(bc.Chain, newBlock)
-	// Save to DB
 	SaveBlock(newBlock)
 
 	// Notify listeners about new transactions
@@ -77,8 +100,8 @@ func (bc *Blockchain) AddBlock(transactions []Transaction) {
 		bc.notifyListeners(tx)
 	}
 
-	log.Printf("New block added: Index=%d, Hash=%s, Transactions=%d",
-		newBlock.Index, newBlock.Hash, len(transactions))
+	log.Printf("New block added: Index=%d, Hash=%s, Timestamp=%s, Transactions=%d",
+		newBlock.Index, newBlock.Hash, newBlock.GetFormattedTimestamp(), len(transactions))
 }
 
 // AddTransaction adds a single transaction to the blockchain
@@ -147,10 +170,19 @@ func (bc *Blockchain) GetStats() BlockchainStats {
 	bc.mutex.RLock()
 	defer bc.mutex.RUnlock()
 
+	report := bc.getIntegrityReport()
+
 	stats := BlockchainStats{
 		TotalBlocks:      len(bc.Chain),
 		TransactionTypes: make(map[TransactionType]int),
-		ChainIntegrity:   bc.verifyChainIntegrity(),
+		ChainIntegrity:   report.IsValid,
+	}
+
+	if !report.IsValid {
+		stats.InvalidBlocks = make([]int, len(report.InvalidBlocks))
+		for i, invalid := range report.InvalidBlocks {
+			stats.InvalidBlocks[i] = invalid.Index
+		}
 	}
 
 	for _, block := range bc.Chain {
@@ -162,33 +194,68 @@ func (bc *Blockchain) GetStats() BlockchainStats {
 
 	if len(bc.Chain) > 0 {
 		lastBlock := bc.Chain[len(bc.Chain)-1]
-		if timestamp, err := time.Parse(time.RFC3339, lastBlock.Timestamp); err == nil {
-			stats.LastBlockTime = timestamp
-		}
+		stats.LastBlockTime = lastBlock.GetTimestamp()
 	}
 
 	return stats
 }
 
-// VerifyChainIntegrity checks if the blockchain is valid
-func (bc *Blockchain) verifyChainIntegrity() bool {
-	for i := 1; i < len(bc.Chain); i++ {
-		currentBlock := bc.Chain[i]
-		prevBlock := bc.Chain[i-1]
+// GetIntegrityReport returns detailed integrity information
+func (bc *Blockchain) GetIntegrityReport() IntegrityReport {
+	bc.mutex.RLock()
+	defer bc.mutex.RUnlock()
 
-		// Verify hash
-		originalHash := currentBlock.Hash
-		currentBlock.GenerateHash()
-		if originalHash != currentBlock.Hash {
-			return false
-		}
+	return bc.getIntegrityReport()
+}
 
-		// Verify link to previous block
-		if currentBlock.PrevHash != prevBlock.Hash {
-			return false
-		}
+// getIntegrityReport performs the actual integrity check (internal method)
+func (bc *Blockchain) getIntegrityReport() IntegrityReport {
+	report := IntegrityReport{
+		IsValid:       true,
+		TotalBlocks:   len(bc.Chain),
+		ValidBlocks:   0,
+		InvalidBlocks: []InvalidBlockInfo{},
+		CheckedAt:     time.Now(),
 	}
-	return true
+
+	for i, block := range bc.Chain {
+		// Check if block hash is valid
+		expectedHash := block.CalculateHash()
+		if block.Hash != expectedHash {
+			report.IsValid = false
+			report.InvalidBlocks = append(report.InvalidBlocks, InvalidBlockInfo{
+				Index:        block.Index,
+				Reason:       "Invalid block hash",
+				ExpectedHash: expectedHash,
+				ActualHash:   block.Hash,
+			})
+			continue
+		}
+
+		// Check if block links to previous block correctly (skip genesis block)
+		if i > 0 {
+			prevBlock := bc.Chain[i-1]
+			if block.PrevHash != prevBlock.Hash {
+				report.IsValid = false
+				report.InvalidBlocks = append(report.InvalidBlocks, InvalidBlockInfo{
+					Index:        block.Index,
+					Reason:       "Invalid previous block hash",
+					ExpectedHash: prevBlock.Hash,
+					ActualHash:   block.PrevHash,
+				})
+				continue
+			}
+		}
+
+		report.ValidBlocks++
+	}
+
+	return report
+}
+
+// VerifyChainIntegrity checks if the blockchain is valid (legacy method)
+func (bc *Blockchain) verifyChainIntegrity() bool {
+	return bc.getIntegrityReport().IsValid
 }
 
 // Subscribe adds a listener for real-time transaction notifications
@@ -196,7 +263,7 @@ func (bc *Blockchain) Subscribe() chan Transaction {
 	bc.mutex.Lock()
 	defer bc.mutex.Unlock()
 
-	listener := make(chan Transaction, 100) // Buffered channel
+	listener := make(chan Transaction, 100)
 	bc.listeners = append(bc.listeners, listener)
 	return listener
 }
@@ -221,7 +288,6 @@ func (bc *Blockchain) notifyListeners(tx Transaction) {
 		select {
 		case listener <- tx:
 		default:
-			// Channel is full, skip this listener
 			log.Printf("Warning: Blockchain listener channel is full")
 		}
 	}
