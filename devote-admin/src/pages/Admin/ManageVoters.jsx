@@ -1,3 +1,5 @@
+// devote-admin/pages/Admin/ManageVoters.jsx
+
 "use client"
 
 import { useState, useEffect } from "react"

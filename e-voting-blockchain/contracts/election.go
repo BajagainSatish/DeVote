@@ -1,3 +1,5 @@
+//election.go
+
 package contracts
 
 import (

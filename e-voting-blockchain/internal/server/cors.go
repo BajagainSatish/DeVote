@@ -1,3 +1,5 @@
+//internal/server/cors.go
+
 package server
 
 import (

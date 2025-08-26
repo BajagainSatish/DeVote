@@ -1,3 +1,5 @@
+// client/src/App.jsx
+
 import React from "react"
 import { Routes, Route } from "react-router-dom"
 import Register from "./pages/Register"

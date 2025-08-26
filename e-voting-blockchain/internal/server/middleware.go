@@ -1,3 +1,5 @@
+//internal/server/middleware.go
+
 package server
 
 import (

@@ -1,3 +1,5 @@
+//Navbar.jsx
+
 "use client"
 import React from "react"
 
@@ -36,6 +38,11 @@ const Navbar = () => {
           <li>
             <Link to="/results" className="hover:text-gray-900 cursor-pointer">
               Results
+            </Link>
+          </li>
+          <li>
+            <Link to="/blockchainexplorer" className="hover:text-gray-900 cursor-pointer">
+              Blockchain Explorer
             </Link>
           </li>
         </ul>

@@ -1,3 +1,5 @@
+//internal/server/routes.go
+
 package server
 
 import (
