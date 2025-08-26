@@ -49,6 +49,10 @@ func LoadBlocks() ([]Block, error) {
 
 	err := db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
+		if b == nil {
+			// No blocks yet, return empty slice
+			return nil
+		}
 		return b.ForEach(func(k, v []byte) error {
 			var block Block
 			if err := json.Unmarshal(v, &block); err != nil {
@@ -68,6 +72,13 @@ func LoadBlocks() ([]Block, error) {
 			if blocks[i].Index > blocks[j].Index {
 				blocks[i], blocks[j] = blocks[j], blocks[i]
 			}
+		}
+	}
+
+	// Ensure slices are non-nil for all transactions
+	for i := range blocks {
+		if blocks[i].Transactions == nil {
+			blocks[i].Transactions = make([]Transaction, 0)
 		}
 	}
 
