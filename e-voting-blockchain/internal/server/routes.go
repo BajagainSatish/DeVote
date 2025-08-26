@@ -1,3 +1,5 @@
+//internal/server/routes.go
+
 package server
 
 import (
@@ -21,6 +23,7 @@ func SetupRoutes() http.Handler {
 	r.HandleFunc("/election/status", HandleElectionStatus).Methods("GET", "OPTIONS")
 	r.HandleFunc("/election/results", HandleElectionResults).Methods("GET", "OPTIONS")
 	r.HandleFunc("/admin/registered-voters", HandleGetRegisteredVoters).Methods("GET", "OPTIONS")
+	r.HandleFunc("/blockchain", getBlockchainHandler).Methods("GET")
 
 	// Admin-only routes with OPTIONS support
 	admin := r.PathPrefix("/admin").Subrouter()

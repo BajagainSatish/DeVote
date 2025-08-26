@@ -1,3 +1,5 @@
+// devote-admin/pages/Admin/ManageParties.jsx
+
 import { useState, useEffect } from "react";
 import { toast } from "react-toastify";
 import apiService from "../../services/api";

@@ -1,3 +1,5 @@
+//blockchain.go
+
 package blockchain
 
 import "time" // Provides current time

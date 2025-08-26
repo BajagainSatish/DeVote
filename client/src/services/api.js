@@ -1,3 +1,5 @@
+// client/src/services/api.js
+
 const API_BASE_URL = "http://localhost:8080"
 
 export const getAuthHeader = () => {
@@ -75,6 +77,10 @@ class VotingApiService {
 
     async getTally() {
         return this.request("/tally", { method: "GET" })
+    }
+
+    async getBlockchain() {
+        return this.request("/blockchain", { method: "GET" })
     }
 }
 

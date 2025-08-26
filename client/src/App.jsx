@@ -1,3 +1,5 @@
+// client/src/App.jsx
+
 import React from "react"
 import { Routes, Route } from "react-router-dom"
 import Register from "./pages/Register"
@@ -6,6 +8,7 @@ import Login from "./pages/Login"
 import Vote from "./pages/Vote"
 import Dashboard from "./pages/Dashboard"
 import Results from "./pages/Results"
+import BlockchainExplorer from "./pages/BlockchainExplorer"
 
 function App() {
   return (
@@ -16,6 +19,7 @@ function App() {
       <Route path="/vote" element={<Vote />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/results" element={<Results />} />
+      <Route path="/blockchain" element={<BlockchainExplorer />} />
     </Routes>
   )
 }

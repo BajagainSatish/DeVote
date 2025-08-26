@@ -1,3 +1,5 @@
+//transaction.go
+
 package blockchain
 
 import (

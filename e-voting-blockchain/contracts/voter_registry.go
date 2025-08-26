@@ -1,3 +1,5 @@
+//voter_registry.go
+
 package contracts
 
 import (
