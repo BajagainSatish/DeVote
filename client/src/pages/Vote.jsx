@@ -1,7 +1,7 @@
 //client/src/pages/Vote.jsx
 
-"use client"
 import React from "react"
+"use client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { UseAuth } from "../context/AuthContext"

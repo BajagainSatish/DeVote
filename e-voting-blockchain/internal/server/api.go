@@ -359,6 +359,9 @@ func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx := blockchain.NewTransaction("admin", id, "UPDATE_CANDIDATE")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	log.Println("Candidate updated successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -529,6 +532,9 @@ func HandleUpdateParty(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	tx := blockchain.NewTransaction("admin", id, "UPDATE_PARTY")
+	chain.AddBlock([]blockchain.Transaction{tx})
 
 	log.Println("Party updated successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {

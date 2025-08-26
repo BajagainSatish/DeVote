@@ -182,7 +182,7 @@ class VotingApiService {
     async getBlockchain() {
         try {
             console.log("[v0] Attempting to fetch blockchain data from backend...")
-            const response = await this.makeRequest("/blockchain")
+            const response = await this.request("/blockchain")
 
             let blocks = response
             if (response.blocks) {
@@ -199,25 +199,18 @@ class VotingApiService {
             console.log("[v0] Blockchain API Response:", JSON.stringify(blocks).substring(0, 200) + "...")
             return blocks
         } catch (error) {
-            console.log("[v0] Backend not available, using mock data for development:", error.message)
-            // Return mock data when backend is not available
-            const mockData = this.getMockBlockchainData()
-            console.log("[v0] Returning mock blockchain data with", mockData.length, "blocks")
-            return mockData
+            console.log("[v0] Backend not available, returning empty blockchain:", error.message)
+            return []
         }
     }
 
     // Get specific block by index
     async getBlock(index) {
         try {
-            const block = await this.makeRequest(`/block/${index}`)
+            const block = await this.request(`/block/${index}`)
             return block
         } catch (error) {
             console.error(`Failed to fetch block ${index}:`, error)
-            // Return mock block if available
-            const mockData = this.getMockBlockchainData()
-            const block = mockData.find((b) => b.Index === index)
-            if (block) return block
             throw error
         }
     }
@@ -225,7 +218,7 @@ class VotingApiService {
     // Get transaction by ID
     async getTransaction(txId) {
         try {
-            const transaction = await this.makeRequest(`/transaction/${txId}`)
+            const transaction = await this.request(`/transaction/${txId}`)
             return transaction
         } catch (error) {
             console.error(`Failed to fetch transaction ${txId}:`, error)
@@ -236,7 +229,7 @@ class VotingApiService {
     // Submit a new vote
     async submitVote(voteData) {
         try {
-            const result = await this.makeRequest("/vote", {
+            const result = await this.request("/vote", {
                 method: "POST",
                 body: JSON.stringify(voteData),
             })
@@ -268,7 +261,7 @@ class VotingApiService {
     // Add candidate (admin function)
     async addCandidate(candidateData) {
         try {
-            const result = await this.makeRequest("/candidate", {
+            const result = await this.request("/candidate", {
                 method: "POST",
                 body: JSON.stringify(candidateData),
             })
@@ -282,7 +275,7 @@ class VotingApiService {
     // Get voting statistics
     async getVotingStats() {
         try {
-            const stats = await this.makeRequest("/stats")
+            const stats = await this.request("/stats")
             return stats
         } catch (error) {
             console.error("Failed to fetch voting stats:", error)
@@ -293,7 +286,7 @@ class VotingApiService {
     // Verify Merkle proof (if backend supports it)
     async verifyMerkleProof(blockIndex, transactionId) {
         try {
-            const proof = await this.makeRequest(`/verify-merkle/${blockIndex}/${transactionId}`)
+            const proof = await this.request(`/verify-merkle/${blockIndex}/${transactionId}`)
             return proof
         } catch (error) {
             console.error("Failed to verify Merkle proof:", error)
@@ -308,21 +301,17 @@ class VotingApiService {
             return results
         } catch (error) {
             console.error("Failed to load election results:", error)
-            // Return mock election results
             return {
-                totalVotes: 7,
-                candidates: [
-                    { name: "John Doe", votes: 4, percentage: 57.1 },
-                    { name: "Jane Smith", votes: 3, percentage: 42.9 },
-                ],
-                status: "active",
+                totalVotes: 0,
+                candidates: [],
+                status: "unavailable",
             }
         }
     }
 
     async getUserVotingStatus(voterID) {
         try {
-            const status = await this.makeRequest(`/voter/${voterID}/status`)
+            const status = await this.request(`/voter/${voterID}/status`)
             return status
         } catch (error) {
             console.error("Failed to get user voting status:", error)
