@@ -19,6 +19,8 @@ import VotingApiService from "../services/api.js"
 import Navbar from "../components/Navbar.jsx"
 import Footer from "../components/Footer.jsx"
 import { MerkleTree } from "../utils/merkle.js"
+import HashComparison from "../components/HashComparison.jsx"
+import GoJsComparison from "../components/GoJsComparison.jsx"
 
 const BlockchainExplorer = () => {
   const [blocks, setBlocks] = useState([])
@@ -43,7 +45,6 @@ const BlockchainExplorer = () => {
       setBlocks(response || [])
     } catch (error) {
       console.error("Failed to load blockchain data:", error)
-      // Fallback to empty array if API fails
       setBlocks([])
     } finally {
       setLoading(false)
@@ -70,6 +71,16 @@ const BlockchainExplorer = () => {
         return <Users className="w-4 h-4 text-yellow-500" />
       case "REMOVE_CANDIDATE":
         return <Users className="w-4 h-4 text-red-500" />
+      case "ADD_PARTY":
+        return <Users className="w-4 h-4 text-purple-500" />
+      case "UPDATE_PARTY":
+        return <Users className="w-4 h-4 text-orange-500" />
+      case "DELETE_PARTY":
+        return <Users className="w-4 h-4 text-red-600" />
+      case "START_ELECTION":
+        return <Vote className="w-4 h-4 text-green-600" />
+      case "STOP_ELECTION":
+        return <Vote className="w-4 h-4 text-red-600" />
       default:
         return <Hash className="w-4 h-4 text-gray-500" />
     }
@@ -84,6 +95,16 @@ const BlockchainExplorer = () => {
       case "UPDATE_CANDIDATE":
         return "bg-yellow-100 text-yellow-800"
       case "REMOVE_CANDIDATE":
+        return "bg-red-100 text-red-800"
+      case "ADD_PARTY":
+        return "bg-purple-100 text-purple-800"
+      case "UPDATE_PARTY":
+        return "bg-orange-100 text-orange-800"
+      case "DELETE_PARTY":
+        return "bg-red-100 text-red-800"
+      case "START_ELECTION":
+        return "bg-green-100 text-green-800"
+      case "STOP_ELECTION":
         return "bg-red-100 text-red-800"
       default:
         return "bg-gray-100 text-gray-800"
@@ -110,28 +131,52 @@ const BlockchainExplorer = () => {
     switch (type) {
       case "ADD_CANDIDATE":
       case "UPDATE_CANDIDATE": {
-        const parts = payload.split(":")
-        if (parts.length >= 3) {
-          return {
-            name: parts[1],
-            bio: parts.slice(2).join(":"),
+        if (payload.includes(":")) {
+          const parts = payload.split(":")
+          if (parts.length >= 3) {
+            return {
+              name: parts[1],
+              bio: parts.slice(2).join(":"),
+            }
           }
         }
-        return { name: "Unknown", bio: payload }
+        return { action: payload }
       }
       case "VOTE":
         return { action: "Cast Vote" }
+      case "ADD_PARTY":
+      case "UPDATE_PARTY":
+      case "DELETE_PARTY":
+        return { action: payload }
+      case "START_ELECTION":
+      case "STOP_ELECTION":
+        return { action: payload }
       default:
         return { raw: payload }
     }
   }
 
   const getTransactionType = (transaction) => {
+    if (transaction.Type) return transaction.Type
     if (transaction.type) return transaction.type
-    if (transaction.Payload === "VOTE") return "VOTE"
-    if (transaction.Payload && transaction.Payload.startsWith("ADD_CANDIDATE:")) return "ADD_CANDIDATE"
-    if (transaction.Payload && transaction.Payload.startsWith("UPDATE_CANDIDATE:")) return "UPDATE_CANDIDATE"
-    if (transaction.Payload === "REMOVE_CANDIDATE") return "REMOVE_CANDIDATE"
+
+    const payload = transaction.Payload || ""
+
+    if (payload === "VOTE") return "VOTE"
+    if (payload === "ADD_CANDIDATE") return "ADD_CANDIDATE"
+    if (payload === "UPDATE_CANDIDATE") return "UPDATE_CANDIDATE"
+    if (payload === "REMOVE_CANDIDATE") return "REMOVE_CANDIDATE"
+    if (payload === "ADD_PARTY") return "ADD_PARTY"
+    if (payload === "UPDATE_PARTY") return "UPDATE_PARTY"
+    if (payload === "DELETE_PARTY") return "DELETE_PARTY"
+    if (payload === "START_ELECTION") return "START_ELECTION"
+    if (payload === "STOP_ELECTION") return "STOP_ELECTION"
+
+    if (payload.startsWith("ADD_CANDIDATE:")) return "ADD_CANDIDATE"
+    if (payload.startsWith("UPDATE_CANDIDATE:")) return "UPDATE_CANDIDATE"
+    if (payload.startsWith("ADD_PARTY:")) return "ADD_PARTY"
+    if (payload.startsWith("UPDATE_PARTY:")) return "UPDATE_PARTY"
+
     return "UNKNOWN"
   }
 
@@ -145,6 +190,24 @@ const BlockchainExplorer = () => {
         block.Transactions.some((tx) => {
           const type = getTransactionType(tx)
           return type === "ADD_CANDIDATE" || type === "UPDATE_CANDIDATE" || type === "REMOVE_CANDIDATE"
+        })
+      )
+    }
+    if (filter === "parties") {
+      return (
+        block.Transactions &&
+        block.Transactions.some((tx) => {
+          const type = getTransactionType(tx)
+          return type === "ADD_PARTY" || type === "UPDATE_PARTY" || type === "DELETE_PARTY"
+        })
+      )
+    }
+    if (filter === "elections") {
+      return (
+        block.Transactions &&
+        block.Transactions.some((tx) => {
+          const type = getTransactionType(tx)
+          return type === "START_ELECTION" || type === "STOP_ELECTION"
         })
       )
     }
@@ -172,12 +235,11 @@ const BlockchainExplorer = () => {
     setVerifyingBlocks((prev) => new Set([...prev, blockKey]))
 
     try {
-      // Simulate API delay for better UX
       await new Promise((resolve) => setTimeout(resolve, 500))
 
       if (!block.merkleRoot && !block.MerkleRoot) {
         console.log("[v0] Block has no Merkle root, calculating expected root for comparison")
-        const expectedRoot = MerkleTree.buildMerkleTree(block.Transactions || []).root
+        const { root: expectedRoot } = await MerkleTree.buildMerkleTreeAsync(block.Transactions || [])
         setVerificationResults(
           (prev) =>
             new Map([
@@ -196,9 +258,38 @@ const BlockchainExplorer = () => {
         return
       }
 
-      const result = MerkleTree.verifyBlockIntegrity(block)
-      console.log("[v0] Block verification result:", result)
-      setVerificationResults((prev) => new Map([...prev, [blockKey, result]]))
+      const { root: calculatedRoot } = await MerkleTree.buildMerkleTreeAsync(block.Transactions || [])
+      const storedRoot = block.merkleRoot || block.MerkleRoot
+      const isValid = calculatedRoot === storedRoot
+
+      console.log("[v0] Block verification:", {
+        blockIndex: block.Index,
+        calculatedRoot,
+        storedRoot,
+        isValid,
+        transactions: block.Transactions?.map((tx) => ({
+          id: tx.ID,
+          hash: MerkleTree.hashTransactionAsync ? "async-method" : "sync-method",
+        })),
+      })
+
+      setVerificationResults(
+        (prev) =>
+          new Map([
+            ...prev,
+            [
+              blockKey,
+              {
+                isValid,
+                calculatedRoot,
+                storedRoot,
+                block: block,
+                transactions: block.Transactions || [],
+                error: isValid ? null : `Merkle root mismatch\nExpected: ${calculatedRoot}\nActual: ${storedRoot}`,
+              },
+            ],
+          ]),
+      )
     } catch (error) {
       console.error("Verification failed:", error)
       setVerificationResults(
@@ -223,7 +314,7 @@ const BlockchainExplorer = () => {
     }
   }
 
-  const verifyTransactionInclusion = (block, transaction) => {
+  const verifyTransactionInclusion = async (block, transaction) => {
     try {
       const merkleRoot = block.merkleRoot || block.MerkleRoot
       if (!merkleRoot) {
@@ -238,8 +329,8 @@ const BlockchainExplorer = () => {
         return
       }
 
-      const proof = MerkleTree.generateMerkleProof(block.Transactions, transaction)
-      const isValid = MerkleTree.verifyMerkleProof(transaction, proof, merkleRoot)
+      const proof = await MerkleTree.generateMerkleProofAsync(block.Transactions, transaction)
+      const isValid = await MerkleTree.verifyMerkleProofAsync(transaction, proof, merkleRoot)
 
       console.log("[v0] Transaction verification:", {
         transactionId: transaction.ID,
@@ -395,6 +486,8 @@ const BlockchainExplorer = () => {
                   <option value="all">All Blocks</option>
                   <option value="votes">Blocks with Votes</option>
                   <option value="candidates">Blocks with Candidate Changes</option>
+                  <option value="parties">Blocks with Party Changes</option>
+                  <option value="elections">Blocks with Election Management</option>
                 </select>
 
                 <button
@@ -417,13 +510,31 @@ const BlockchainExplorer = () => {
             </div>
           </div>
 
+          {/* Go vs JavaScript JSON Marshaling Comparison Tool */}
+          <div className="mb-8">
+            <GoJsComparison />
+          </div>
+
           {/* Blockchain Visualization */}
           <div className="space-y-4">
             {searchFilteredBlocks.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                 <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-600 mb-2">No blocks found</h3>
-                <p className="text-gray-500">Try adjusting your search or filter criteria</p>
+                <p className="text-gray-500 mb-4">
+                  {blocks.length === 0
+                    ? "No blockchain data available. Please ensure your backend server is running on http://localhost:8080"
+                    : "Try adjusting your search or filter criteria"}
+                </p>
+                {blocks.length === 0 && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-4 text-left">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-2">Backend Connection Required</h4>
+                    <p className="text-sm text-yellow-700">
+                      The blockchain explorer requires a connection to your Go backend server. Please start your backend
+                      server and ensure it's accessible at http://localhost:8080
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
               searchFilteredBlocks.reverse().map((block, index) => {
@@ -457,7 +568,6 @@ const BlockchainExplorer = () => {
                           </p>
                         </div>
                       </div>
-
                       <div className="text-right">
                         <div className="text-sm text-gray-600 font-mono">Hash: {formatHash(block.Hash)}</div>
                         <div className="text-xs text-gray-500 font-mono">Prev: {formatHash(block.PrevHash)}</div>
@@ -521,6 +631,16 @@ const BlockchainExplorer = () => {
                                         {verificationResults.get(blockKey).message}
                                       </div>
                                     )}
+                                    {!verificationResults.get(blockKey).isValid &&
+                                      verificationResults.get(blockKey).transactions &&
+                                      verificationResults.get(blockKey).transactions.length > 0 && (
+                                        <div className="mt-3">
+                                          <HashComparison
+                                            transaction={verificationResults.get(blockKey).transactions[0]}
+                                            expectedHash={verificationResults.get(blockKey).storedRoot}
+                                          />
+                                        </div>
+                                      )}
                                   </div>
                                 )}
                               </div>
@@ -579,7 +699,25 @@ const BlockchainExplorer = () => {
                                     {txType === "ADD_CANDIDATE" && (
                                       <div className="mt-2 text-sm">
                                         <span className="text-gray-600">Candidate:</span>
-                                        <span className="ml-2 font-semibold">{parsedPayload.name}</span>
+                                        <span className="ml-2 font-semibold">
+                                          {parsedPayload.name || parsedPayload.action}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {(txType === "ADD_PARTY" ||
+                                      txType === "UPDATE_PARTY" ||
+                                      txType === "DELETE_PARTY") && (
+                                      <div className="mt-2 text-sm">
+                                        <span className="text-gray-600">Party Action:</span>
+                                        <span className="ml-2 font-semibold">{parsedPayload.action}</span>
+                                        <span className="text-gray-600 ml-4">Target:</span>
+                                        <span className="ml-2 font-mono text-sm">{tx.Receiver}</span>
+                                      </div>
+                                    )}
+                                    {(txType === "START_ELECTION" || txType === "STOP_ELECTION") && (
+                                      <div className="mt-2 text-sm">
+                                        <span className="text-gray-600">Election Action:</span>
+                                        <span className="ml-2 font-semibold">{parsedPayload.action}</span>
                                       </div>
                                     )}
                                   </div>
@@ -600,186 +738,177 @@ const BlockchainExplorer = () => {
               })
             )}
           </div>
-
-          {/* Transaction Detail Modal */}
-          {selectedTransaction && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
-                    <button onClick={() => setSelectedTransaction(null)} className="text-gray-400 hover:text-gray-600">
-                      <span className="sr-only">Close</span>
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="text-sm font-semibold text-gray-700">Transaction ID</label>
-                      <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded break-all">
-                        {selectedTransaction.ID}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-semibold text-gray-700">From</label>
-                        <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
-                          {selectedTransaction.Sender}
-                        </p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-semibold text-gray-700">To</label>
-                        <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
-                          {selectedTransaction.Receiver}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-semibold text-gray-700">Type</label>
-                      <div className="mt-1">
-                        <span
-                          className={`px-3 py-1 rounded-full text-sm font-medium ${getTransactionTypeColor(getTransactionType(selectedTransaction))}`}
-                        >
-                          {getTransactionType(selectedTransaction)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="text-sm font-semibold text-gray-700">Payload</label>
-                      <p className="text-sm text-gray-600 bg-gray-100 p-3 rounded break-all">
-                        {selectedTransaction.Payload}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Transaction Merkle Proof Modal */}
-          {selectedTransactionProof && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-              <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="p-6 border-b border-gray-200">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-gray-900">Transaction Merkle Proof</h3>
-                    <button
-                      onClick={() => setSelectedTransactionProof(null)}
-                      className="text-gray-400 hover:text-gray-600"
-                    >
-                      <span className="sr-only">Close</span>
-                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-
-                <div className="p-6">
-                  <div className="mb-6">
-                    {selectedTransactionProof.isValid ? (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div className="flex items-center">
-                          <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
-                          <span className="text-green-800 font-semibold">Transaction Successfully Verified</span>
-                        </div>
-                        <p className="text-green-700 text-sm mt-1">
-                          This transaction is cryptographically proven to be included in Block #
-                          {selectedTransactionProof.block.Index}
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <div className="flex items-center">
-                          <XCircle className="w-5 h-5 text-red-500 mr-2" />
-                          <span className="text-red-800 font-semibold">Transaction Verification Failed</span>
-                        </div>
-                        <p className="text-red-700 text-sm mt-1">
-                          This transaction could not be verified as part of the block
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Transaction Details</h4>
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                        <div>
-                          <span className="text-xs text-gray-500">Transaction ID:</span>
-                          <p className="font-mono text-xs break-all">{selectedTransactionProof.transaction.ID}</p>
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-500">From:</span>
-                          <p className="font-mono text-xs">{selectedTransactionProof.transaction.Sender}</p>
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-500">To:</span>
-                          <p className="font-mono text-xs">{selectedTransactionProof.transaction.Receiver}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div>
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Block Information</h4>
-                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
-                        <div>
-                          <span className="text-xs text-gray-500">Block Index:</span>
-                          <p className="font-mono text-xs">#{selectedTransactionProof.block.Index}</p>
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-500">Merkle Root:</span>
-                          <p className="font-mono text-xs break-all">{selectedTransactionProof.merkleRoot}</p>
-                        </div>
-                        <div>
-                          <span className="text-xs text-gray-500">Total Transactions:</span>
-                          <p className="font-mono text-xs">
-                            {selectedTransactionProof.block.Transactions?.length || 0}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedTransactionProof.error && (
-                    <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-                      <p className="text-yellow-800 text-sm">{selectedTransactionProof.error}</p>
-                    </div>
-                  )}
-
-                  {selectedTransactionProof.proof && (
-                    <div className="mt-6">
-                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Merkle Proof Path</h4>
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <p className="text-xs text-gray-600 mb-3">
-                          The following hashes prove this transaction is included in the Merkle tree:
-                        </p>
-                        <div className="space-y-2">
-                          {selectedTransactionProof.proof.map((step, index) => (
-                            <div key={index} className="flex items-center space-x-2 text-xs">
-                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Step {index + 1}</span>
-                              <span className="text-gray-600">{step.isLeft ? "Left:" : "Right:"}</span>
-                              <span className="font-mono text-gray-800 break-all">{step.hash}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
+      {selectedTransaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Transaction Details</h3>
+                <button onClick={() => setSelectedTransaction(null)} className="text-gray-400 hover:text-gray-600">
+                  <span className="sr-only">Close</span>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Transaction ID</label>
+                  <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded break-all">
+                    {selectedTransaction.ID}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">From</label>
+                    <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
+                      {selectedTransaction.Sender}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-semibold text-gray-700">To</label>
+                    <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
+                      {selectedTransaction.Receiver}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Type</label>
+                  <div className="mt-1">
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-medium ${getTransactionTypeColor(getTransactionType(selectedTransaction))}`}
+                    >
+                      {getTransactionType(selectedTransaction)}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-sm font-semibold text-gray-700">Payload</label>
+                  <p className="text-sm text-gray-600 bg-gray-100 p-3 rounded break-all">
+                    {selectedTransaction.Payload}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {selectedTransactionProof && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Transaction Merkle Proof</h3>
+                <button onClick={() => setSelectedTransactionProof(null)} className="text-gray-400 hover:text-gray-600">
+                  <span className="sr-only">Close</span>
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-6">
+                {selectedTransactionProof.isValid ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                      <span className="text-green-800 font-semibold">Transaction Successfully Verified</span>
+                    </div>
+                    <p className="text-green-700 text-sm mt-1">
+                      This transaction is cryptographically proven to be included in Block #
+                      {selectedTransactionProof.block.Index}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div className="flex items-center">
+                      <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                      <span className="text-red-800 font-semibold">Transaction Verification Failed</span>
+                    </div>
+                    <p className="text-red-700 text-sm mt-1">
+                      This transaction could not be verified as part of the block
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Transaction Details</h4>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div>
+                      <span className="text-xs text-gray-500">Transaction ID:</span>
+                      <p className="font-mono text-xs break-all">{selectedTransactionProof.transaction.ID}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">From:</span>
+                      <p className="font-mono text-xs">{selectedTransactionProof.transaction.Sender}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">To:</span>
+                      <p className="font-mono text-xs">{selectedTransactionProof.transaction.Receiver}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Block Information</h4>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                    <div>
+                      <span className="text-xs text-gray-500">Block Index:</span>
+                      <p className="font-mono text-xs">#{selectedTransactionProof.block.Index}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">Merkle Root:</span>
+                      <p className="font-mono text-xs break-all">{selectedTransactionProof.merkleRoot}</p>
+                    </div>
+                    <div>
+                      <span className="text-xs text-gray-500">Total Transactions:</span>
+                      <p className="font-mono text-xs">{selectedTransactionProof.block.Transactions?.length || 0}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {selectedTransactionProof.error && (
+                <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <p className="text-yellow-800 text-sm">{selectedTransactionProof.error}</p>
+                </div>
+              )}
+
+              {selectedTransactionProof.proof && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Merkle Proof Path</h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <p className="text-xs text-gray-600 mb-3">
+                      The following hashes prove this transaction is included in the Merkle tree:
+                    </p>
+                    <div className="space-y-2">
+                      {selectedTransactionProof.proof.map((step, index) => (
+                        <div key={index} className="flex items-center space-x-2 text-xs">
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Step {index + 1}</span>
+                          <span className="text-gray-600">{step.isLeft ? "Left:" : "Right:"}</span>
+                          <span className="font-mono text-gray-800 break-all">{step.hash}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <Footer />
     </>
   )

@@ -37,14 +37,14 @@ func main() {
 	// Test 4: Merkle Proof Generation and Verification
 	fmt.Println("\n--- Test 4: Merkle Proof ---")
 	tree := blockchain.NewMerkleTree(multiTxs)
-	proof, err := tree.GenerateMerkleProof(tx2.ID)
+	proof, err := tree.GenerateMerkleProof(tx2) // Pass full Transaction
 	if err != nil {
 		log.Printf("Error generating proof: %v", err)
 	} else {
 		fmt.Printf("Generated proof for tx2: %v\n", proof)
 
 		// Verify the proof
-		isValid := blockchain.VerifyMerkleProof(tx2.ID, proof, multiRoot)
+		isValid := blockchain.VerifyMerkleProof(tx2, proof, multiRoot) // Pass full Transaction
 		fmt.Printf("Proof verification result: %v\n", isValid)
 	}
 

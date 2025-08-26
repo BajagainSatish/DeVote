@@ -200,6 +200,18 @@ class VotingApiService {
             return blocks
         } catch (error) {
             console.log("[v0] Backend not available, returning empty blockchain:", error.message)
+
+            // Check if it's a network error (backend not running)
+            if (error.message.includes("Failed to fetch") || error.message.includes("fetch")) {
+                console.warn(
+                    "[v0] Backend server appears to be offline. Please ensure your Go backend is running on http://localhost:8080",
+                )
+                // Return empty array as requested by user (no mock data)
+                return []
+            }
+
+            // For other errors, still return empty array but log the specific error
+            console.error("[v0] Blockchain API error:", error)
             return []
         }
     }

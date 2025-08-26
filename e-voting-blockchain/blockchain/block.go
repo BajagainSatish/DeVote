@@ -86,28 +86,28 @@ func (b *Block) VerifyBlockIntegrity() bool {
 
 // VerifyTransactionInBlock verifies that a specific transaction is included in this block
 func (b *Block) VerifyTransactionInBlock(txID string) (bool, error) {
-	// First check if transaction exists in the block
-	var txExists bool
+	// Find the transaction
+	var targetTx *Transaction
 	for _, tx := range b.Transactions {
 		if tx.ID == txID {
-			txExists = true
+			targetTx = &tx
 			break
 		}
 	}
 
-	if !txExists {
+	if targetTx == nil {
 		return false, nil
 	}
 
 	// Generate Merkle Tree and proof
 	tree := NewMerkleTree(b.Transactions)
-	proof, err := tree.GenerateMerkleProof(txID)
+	proof, err := tree.GenerateMerkleProof(*targetTx) // <-- pass Transaction
 	if err != nil {
 		return false, err
 	}
 
 	// Verify the proof
-	return VerifyMerkleProof(txID, proof, b.MerkleRoot), nil
+	return VerifyMerkleProof(*targetTx, proof, b.MerkleRoot), nil
 }
 
 // GetTransactionCount returns the number of transactions in the block
