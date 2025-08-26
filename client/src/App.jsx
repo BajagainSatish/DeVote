@@ -19,7 +19,7 @@ function App() {
       <Route path="/vote" element={<Vote />} />
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/results" element={<Results />} />
-      <Route path="/blockchainexplorer" element={<BlockchainExplorer />} />
+      <Route path="/blockchain" element={<BlockchainExplorer />} />
     </Routes>
   )
 }

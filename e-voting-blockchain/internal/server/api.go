@@ -1004,3 +1004,24 @@ func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Successfully deleted registered voter: %s", voterID)
 	json.NewEncoder(w).Encode(map[string]string{"status": "voter deleted", "message": "Registered voter deleted successfully"})
 }
+
+func getBlockchainHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	blocks, err := blockchain.LoadBlocks() // no args
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to load blockchain"})
+		return
+	}
+
+	// Ensure slices are non-nil for all blocks
+	for i := range blocks {
+		if blocks[i].Transactions == nil {
+			blocks[i].Transactions = make([]blockchain.Transaction, 0)
+		}
+	}
+
+	json.NewEncoder(w).Encode(blocks)
+}

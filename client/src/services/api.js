@@ -78,6 +78,10 @@ class VotingApiService {
     async getTally() {
         return this.request("/tally", { method: "GET" })
     }
+
+    async getBlockchain() {
+        return this.request("/blockchain", { method: "GET" })
+    }
 }
 
 export default new VotingApiService()

@@ -41,7 +41,7 @@ const Navbar = () => {
             </Link>
           </li>
           <li>
-            <Link to="/blockchainexplorer" className="hover:text-gray-900 cursor-pointer">
+            <Link to="/blockchain" className="hover:text-gray-900 cursor-pointer">
               Blockchain Explorer
             </Link>
           </li>

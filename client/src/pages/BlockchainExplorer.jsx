@@ -1,78 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, ChevronRight, Eye, Shield, Clock, Hash, Users, Vote } from 'lucide-react';
-
-// Mock data - replace with actual API calls
-const mockBlockchainData = [
-  {
-    index: 0,
-    timestamp: "2024-01-15T10:00:00Z",
-    hash: "000abc123def456789...",
-    prevHash: "0000000000000000000...",
-    transactions: [],
-    merkleRoot: "abc123def456...",
-    nonce: 12345
-  },
-  {
-    index: 1,
-    timestamp: "2024-01-15T10:05:00Z",
-    hash: "000def456ghi789abc...",
-    prevHash: "000abc123def456789...",
-    merkleRoot: "def456ghi789...",
-    nonce: 67890,
-    transactions: [
-      {
-        id: "tx001",
-        sender: "admin",
-        receiver: "candidate001",
-        payload: "ADD_CANDIDATE:John Doe:Experienced leader with 10 years in public service",
-        timestamp: "2024-01-15T10:04:30Z",
-        type: "ADD_CANDIDATE"
-      },
-      {
-        id: "tx002",
-        sender: "admin",
-        receiver: "candidate002",
-        payload: "ADD_CANDIDATE:Jane Smith:Environmental activist and policy expert",
-        timestamp: "2024-01-15T10:04:45Z",
-        type: "ADD_CANDIDATE"
-      }
-    ]
-  },
-  {
-    index: 2,
-    timestamp: "2024-01-15T10:10:00Z",
-    hash: "000ghi789jkl012mno...",
-    prevHash: "000def456ghi789abc...",
-    merkleRoot: "ghi789jkl012...",
-    nonce: 24680,
-    transactions: [
-      {
-        id: "tx003",
-        sender: "voter001",
-        receiver: "candidate001",
-        payload: "VOTE",
-        timestamp: "2024-01-15T10:09:15Z",
-        type: "VOTE"
-      },
-      {
-        id: "tx004",
-        sender: "voter002",
-        receiver: "candidate002",
-        payload: "VOTE",
-        timestamp: "2024-01-15T10:09:30Z",
-        type: "VOTE"
-      },
-      {
-        id: "tx005",
-        sender: "voter003",
-        receiver: "candidate001",
-        payload: "VOTE",
-        timestamp: "2024-01-15T10:09:45Z",
-        type: "VOTE"
-      }
-    ]
-  }
-];
+import VotingApiService from '../services/api.js';
+import Navbar from '../components/Navbar.jsx';
+import Footer from '../components/Footer.jsx';
 
 const BlockchainExplorer = () => {
   const [blocks, setBlocks] = useState([]);
@@ -89,17 +19,15 @@ const BlockchainExplorer = () => {
   const loadBlockchainData = async () => {
     try {
       setLoading(true);
-      // Replace with actual API call
-      // const response = await fetch('/api/blockchain/inspect');
-      // const data = await response.json();
-      
-      // For now, use mock data
-      setTimeout(() => {
-        setBlocks(mockBlockchainData);
-        setLoading(false);
-      }, 1000);
+      //  Using real API instead of mock data
+      const response = await VotingApiService.getBlockchain();
+      console.log("[v0] Blockchain API Response:", response);
+      setBlocks(response || []);
     } catch (error) {
       console.error('Failed to load blockchain data:', error);
+      // Fallback to empty array if API fails
+      setBlocks([]);
+    } finally {
       setLoading(false);
     }
   };
@@ -150,7 +78,9 @@ const BlockchainExplorer = () => {
   };
 
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
+    //  Handle both Unix timestamp and ISO string formats
+    const date = typeof timestamp === 'string' ? new Date(timestamp) : new Date(timestamp * 1000);
+    return date.toLocaleString();
   };
 
   const parseTransactionPayload = (payload, type) => {
@@ -173,13 +103,23 @@ const BlockchainExplorer = () => {
   }
 };
 
+//  Determine transaction type from payload for compatibility with Go backend
+  const getTransactionType = (transaction) => {
+    if (transaction.type) return transaction.type;
+    if (transaction.payload === 'VOTE') return 'VOTE';
+    if (transaction.payload && transaction.payload.startsWith('ADD_CANDIDATE:')) return 'ADD_CANDIDATE';
+    if (transaction.payload && transaction.payload.startsWith('UPDATE_CANDIDATE:')) return 'UPDATE_CANDIDATE';
+    if (transaction.payload === 'REMOVE_CANDIDATE') return 'REMOVE_CANDIDATE';
+    return 'UNKNOWN';
+  };
+
   const filteredBlocks = blocks.filter(block => {
     if (filter === 'votes') {
-      return block.transactions.some(tx => tx.type === 'VOTE');
+      return block.transactions.some(tx => getTransactionType(tx) === 'VOTE');
     }
     if (filter === 'candidates') {
       return block.transactions.some(tx => 
-        tx.type === 'ADD_CANDIDATE' || tx.type === 'UPDATE_CANDIDATE' || tx.type === 'REMOVE_CANDIDATE'
+        tx.type === 'ADD_CANDIDATE' || getTransactionType(tx) === 'UPDATE_CANDIDATE' || getTransactionType(tx) === 'REMOVE_CANDIDATE'
       );
     }
     return true;
@@ -212,6 +152,8 @@ const BlockchainExplorer = () => {
   }
 
   return (
+    <>
+    <Navbar/>
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
@@ -247,7 +189,7 @@ const BlockchainExplorer = () => {
               <div className="ml-4">
                 <h3 className="text-2xl font-bold text-gray-900">
                   {blocks.reduce((sum, block) => 
-                    sum + block.transactions.filter(tx => tx.type === 'VOTE').length, 0
+                    sum + block.Transactions?.filter(tx => tx.type === 'VOTE').length, 0
                   )}
                 </h3>
                 <p className="text-gray-600">Total Votes</p>
@@ -263,7 +205,7 @@ const BlockchainExplorer = () => {
               <div className="ml-4">
                 <h3 className="text-2xl font-bold text-gray-900">
                   {blocks.reduce((sum, block) => 
-                    sum + block.transactions.filter(tx => tx.type === 'ADD_CANDIDATE').length, 0
+                    sum + block.transactions?.filter(tx => tx.type === 'ADD_CANDIDATE').length, 0
                   )}
                 </h3>
                 <p className="text-gray-600">Candidates Added</p>
@@ -330,7 +272,7 @@ const BlockchainExplorer = () => {
             </div>
           ) : (
             searchFilteredBlocks.reverse().map((block) => (
-              <div key={block.index} className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div key={block.hash} className="bg-white rounded-lg shadow-sm border border-gray-200">
                 {/* Block Header */}
                 <div
                   className="flex items-center justify-between p-6 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -352,7 +294,7 @@ const BlockchainExplorer = () => {
                         Block #{block.index}
                       </h3>
                       <p className="text-sm text-gray-500">
-                        {formatTimestamp(block.timestamp)} • {block.transactions.length} transactions
+                        {formatTimestamp(block.timestamp)} • {block.Transactions.length} transactions
                       </p>
                     </div>
                   </div>
@@ -524,6 +466,7 @@ const BlockchainExplorer = () => {
         )}
       </div>
     </div>
+    </>
   );
 };
 
