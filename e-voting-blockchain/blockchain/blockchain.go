@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"time" // Adding time import for CreateGenesisBlock
+	"sync"
+	"time"
 )
 
 // Blockchain represents the entire chain of blocks
 type Blockchain struct {
-	Blocks []Block `json:"blocks"`
+	Blocks              []Block       `json:"blocks"`
+	PendingTransactions []Transaction `json:"pending_transactions"` // Added pending transaction queue
+	mutex               sync.RWMutex  // Added mutex for thread safety
+	blockTimer          *time.Timer   // Added timer for periodic block creation
+	blockInterval       time.Duration // Added configurable block creation interval
 }
 
 // CreateGenesisBlock creates the very first block in the chain.
@@ -18,12 +23,14 @@ type Blockchain struct {
 func CreateGenesisBlock() Block {
 	genesis := Block{
 		Index:        0,
-		Timestamp:    time.Now().String(), // Capture current time
+		Timestamp:    time.Now().Format(time.RFC3339), // Use RFC3339 format for consistency
 		PrevHash:     "",
 		Transactions: []Transaction{},                    // Empty transaction list
 		MerkleRoot:   ComputeMerkleRoot([]Transaction{}), // Compute Merkle root for empty transactions
+		Nonce:        0,                                  // Initialize nonce properly
 	}
-	genesis.GenerateHash()
+
+	genesis.MineBlock(2) // Use difficulty of 2 for genesis block
 	return genesis
 }
 
@@ -32,28 +39,105 @@ func NewBlockchain() *Blockchain {
 	InitDB() // Open DB
 
 	blocks, err := LoadBlocks()
+
+	bc := &Blockchain{
+		PendingTransactions: make([]Transaction, 0), // Initialize pending transactions queue
+		blockInterval:       30 * time.Second,       // Set default block creation interval to 30 seconds
+	}
+
 	if err != nil || len(blocks) == 0 {
 		// No blocks in DB, create genesis
 		genesis := CreateGenesisBlock()
 		SaveBlock(genesis)
-		return &Blockchain{Blocks: []Block{genesis}}
+		bc.Blocks = []Block{genesis}
+	} else {
+		bc.Blocks = blocks
 	}
 
-	return &Blockchain{Blocks: blocks}
+	bc.startBlockTimer()
+
+	return bc
 }
 
-// AddBlock adds a new block to the blockchain with database persistence
-func (bc *Blockchain) AddBlock(transactions []Transaction) {
+func (bc *Blockchain) startBlockTimer() {
+	bc.blockTimer = time.AfterFunc(bc.blockInterval, func() {
+		bc.createBlockFromPendingTransactions()
+		bc.startBlockTimer() // Restart timer for next interval
+	})
+}
+
+func (bc *Blockchain) StopBlockTimer() {
+	if bc.blockTimer != nil {
+		bc.blockTimer.Stop()
+	}
+}
+
+func (bc *Blockchain) AddTransaction(transaction Transaction) {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+
+	bc.PendingTransactions = append(bc.PendingTransactions, transaction)
+	fmt.Printf("Transaction %s added to pending queue. Queue size: %d\n", transaction.ID, len(bc.PendingTransactions))
+}
+
+func (bc *Blockchain) createBlockFromPendingTransactions() {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+
+	// Only create block if there are pending transactions
+	if len(bc.PendingTransactions) == 0 {
+		fmt.Println("No pending transactions, skipping block creation")
+		return
+	}
+
+	// Get all pending transactions for the new block
+	transactions := make([]Transaction, len(bc.PendingTransactions))
+	copy(transactions, bc.PendingTransactions)
+
+	// Create new block with all pending transactions
 	lastBlock := bc.Blocks[len(bc.Blocks)-1]
 
 	newBlock := Block{
 		Index:        len(bc.Blocks),
-		Timestamp:    time.Now().String(),
+		Timestamp:    time.Now().Format(time.RFC3339),
 		PrevHash:     lastBlock.Hash,
 		Transactions: transactions,
-		MerkleRoot:   ComputeMerkleRoot(transactions), // Compute Merkle root
+		MerkleRoot:   ComputeMerkleRoot(transactions),
+		Nonce:        0,
 	}
-	newBlock.GenerateHash()
+
+	fmt.Printf("Mining new block with %d transactions...\n", len(transactions))
+	newBlock.MineBlock(2) // Use difficulty of 2
+
+	bc.Blocks = append(bc.Blocks, newBlock)
+
+	// Clear pending transactions
+	bc.PendingTransactions = make([]Transaction, 0)
+
+	// Save to DB
+	SaveBlock(newBlock)
+
+	fmt.Printf("Block #%d created with %d transactions. Hash: %s\n", newBlock.Index, len(transactions), newBlock.Hash)
+}
+
+// AddBlock adds a new block to the blockchain with database persistence
+// This method is now primarily used for manual block creation or testing
+func (bc *Blockchain) AddBlock(transactions []Transaction) {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+
+	lastBlock := bc.Blocks[len(bc.Blocks)-1]
+
+	newBlock := Block{
+		Index:        len(bc.Blocks),
+		Timestamp:    time.Now().Format(time.RFC3339), // Use RFC3339 format
+		PrevHash:     lastBlock.Hash,
+		Transactions: transactions,
+		MerkleRoot:   ComputeMerkleRoot(transactions),
+		Nonce:        0, // Initialize nonce
+	}
+
+	newBlock.MineBlock(2)
 
 	bc.Blocks = append(bc.Blocks, newBlock)
 
@@ -61,8 +145,45 @@ func (bc *Blockchain) AddBlock(transactions []Transaction) {
 	SaveBlock(newBlock)
 }
 
+func (bc *Blockchain) ForceCreateBlock() {
+	fmt.Println("Forcing block creation...")
+	bc.createBlockFromPendingTransactions()
+}
+
+func (bc *Blockchain) GetPendingTransactionCount() int {
+	bc.mutex.RLock()
+	defer bc.mutex.RUnlock()
+	return len(bc.PendingTransactions)
+}
+
+func (bc *Blockchain) GetPendingTransactions() []Transaction {
+	bc.mutex.RLock()
+	defer bc.mutex.RUnlock()
+
+	transactions := make([]Transaction, len(bc.PendingTransactions))
+	copy(transactions, bc.PendingTransactions)
+	return transactions
+}
+
+func (bc *Blockchain) SetBlockInterval(interval time.Duration) {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+
+	bc.blockInterval = interval
+
+	// Restart timer with new interval
+	if bc.blockTimer != nil {
+		bc.blockTimer.Stop()
+	}
+	bc.startBlockTimer()
+
+	fmt.Printf("Block creation interval set to %v\n", interval)
+}
+
 // GetLatestBlock returns the most recent block in the chain
 func (bc *Blockchain) GetLatestBlock() Block {
+	bc.mutex.RLock()
+	defer bc.mutex.RUnlock()
 	return bc.Blocks[len(bc.Blocks)-1]
 }
 

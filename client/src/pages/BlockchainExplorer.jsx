@@ -1,11 +1,24 @@
-"use client"
+// BlockchainExplorer.jsx
 
-import React from "react"
+"use client"
 import { useState, useEffect } from "react"
-import { ChevronDown, ChevronRight, Shield, Clock, Hash, Users, Vote } from "lucide-react"
+import React from "react"
+import {
+  ChevronDown,
+  ChevronRight,
+  Shield,
+  Clock,
+  Hash,
+  Users,
+  Vote,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+} from "lucide-react"
 import VotingApiService from "../services/api.js"
 import Navbar from "../components/Navbar.jsx"
 import Footer from "../components/Footer.jsx"
+import { MerkleTree } from "../utils/merkle.js"
 
 const BlockchainExplorer = () => {
   const [blocks, setBlocks] = useState([])
@@ -14,6 +27,9 @@ const BlockchainExplorer = () => {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState("all")
   const [searchTerm, setSearchTerm] = useState("")
+  const [verificationResults, setVerificationResults] = useState(new Map())
+  const [verifyingBlocks, setVerifyingBlocks] = useState(new Set())
+  const [selectedTransactionProof, setSelectedTransactionProof] = useState(null)
 
   useEffect(() => {
     loadBlockchainData()
@@ -81,8 +97,13 @@ const BlockchainExplorer = () => {
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "Invalid Date"
-    const date = new Date(timestamp)
-    return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleString()
+    try {
+      const date = new Date(timestamp)
+      return isNaN(date.getTime()) ? "Invalid Date" : date.toLocaleString()
+    } catch (error) {
+      console.error("[v0] Date parsing error:", error, "for timestamp:", timestamp)
+      return "Invalid Date"
+    }
   }
 
   const parseTransactionPayload = (payload, type) => {
@@ -145,6 +166,121 @@ const BlockchainExplorer = () => {
         ))
     )
   })
+
+  const verifyBlockIntegrity = async (block) => {
+    const blockKey = `${block.Hash}-${block.Index}`
+    setVerifyingBlocks((prev) => new Set([...prev, blockKey]))
+
+    try {
+      // Simulate API delay for better UX
+      await new Promise((resolve) => setTimeout(resolve, 500))
+
+      if (!block.merkleRoot && !block.MerkleRoot) {
+        console.log("[v0] Block has no Merkle root, calculating expected root for comparison")
+        const expectedRoot = MerkleTree.buildMerkleTree(block.Transactions || []).root
+        setVerificationResults(
+          (prev) =>
+            new Map([
+              ...prev,
+              [
+                blockKey,
+                {
+                  isValid: false,
+                  error: "Block missing Merkle root",
+                  expectedRoot: expectedRoot,
+                  message: "This block was created before Merkle root implementation",
+                },
+              ],
+            ]),
+        )
+        return
+      }
+
+      const result = MerkleTree.verifyBlockIntegrity(block)
+      console.log("[v0] Block verification result:", result)
+      setVerificationResults((prev) => new Map([...prev, [blockKey, result]]))
+    } catch (error) {
+      console.error("Verification failed:", error)
+      setVerificationResults(
+        (prev) =>
+          new Map([
+            ...prev,
+            [
+              blockKey,
+              {
+                isValid: false,
+                error: "Verification failed: " + error.message,
+              },
+            ],
+          ]),
+      )
+    } finally {
+      setVerifyingBlocks((prev) => {
+        const newSet = new Set(prev)
+        newSet.delete(blockKey)
+        return newSet
+      })
+    }
+  }
+
+  const verifyTransactionInclusion = (block, transaction) => {
+    try {
+      const merkleRoot = block.merkleRoot || block.MerkleRoot
+      if (!merkleRoot) {
+        setSelectedTransactionProof({
+          transaction,
+          block,
+          proof: null,
+          isValid: false,
+          error: "Block missing Merkle root - cannot verify transaction inclusion",
+          merkleRoot: "N/A",
+        })
+        return
+      }
+
+      const proof = MerkleTree.generateMerkleProof(block.Transactions, transaction)
+      const isValid = MerkleTree.verifyMerkleProof(transaction, proof, merkleRoot)
+
+      console.log("[v0] Transaction verification:", {
+        transactionId: transaction.ID,
+        merkleRoot,
+        proofLength: proof?.length || 0,
+        isValid,
+      })
+
+      setSelectedTransactionProof({
+        transaction,
+        block,
+        proof,
+        isValid,
+        merkleRoot,
+      })
+    } catch (error) {
+      console.error("Transaction verification failed:", error)
+      setSelectedTransactionProof({
+        transaction,
+        block,
+        proof: null,
+        isValid: false,
+        error: "Verification failed: " + error.message,
+      })
+    }
+  }
+
+  const getVerificationIcon = (blockKey) => {
+    if (verifyingBlocks.has(blockKey)) {
+      return <AlertCircle className="w-4 h-4 text-yellow-500 animate-spin" />
+    }
+
+    const result = verificationResults.get(blockKey)
+    if (!result) return null
+
+    return result.isValid ? (
+      <CheckCircle className="w-4 h-4 text-green-500" />
+    ) : (
+      <XCircle className="w-4 h-4 text-red-500" />
+    )
+  }
 
   if (loading) {
     return (
@@ -292,6 +428,7 @@ const BlockchainExplorer = () => {
             ) : (
               searchFilteredBlocks.reverse().map((block, index) => {
                 const blockId = `${block.Hash}-${block.Index}-${index}`
+                const blockKey = `${block.Hash}-${block.Index}`
                 return (
                   <div key={blockId} className="bg-white rounded-lg shadow-sm border border-gray-200">
                     {/* Block Header */}
@@ -342,10 +479,52 @@ const BlockchainExplorer = () => {
                           </div>
                           <div className="bg-white p-4 rounded-lg">
                             <h4 className="text-sm font-semibold text-gray-700 mb-2">Merkle Root</h4>
-                            <p className="text-xs font-mono text-gray-600 break-all">{block.merkleRoot || "N/A"}</p>
-                            <div className="mt-2">
-                              <span className="text-xs text-gray-500">Nonce: {block.nonce || "N/A"}</span>
+                            <p className="text-xs font-mono text-gray-600 break-all">
+                              {block.merkleRoot || block.MerkleRoot || "N/A"}
+                            </p>
+                            <div className="mt-2 flex items-center justify-between">
+                              <span className="text-xs text-gray-500">
+                                Nonce: {block.nonce || block.Nonce || "N/A"}
+                              </span>
+                              <div className="flex items-center space-x-2">
+                                {getVerificationIcon(blockKey)}
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    verifyBlockIntegrity(block)
+                                  }}
+                                  disabled={verifyingBlocks.has(blockKey)}
+                                  className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200 disabled:opacity-50"
+                                >
+                                  {verifyingBlocks.has(blockKey) ? "Verifying..." : "Verify"}
+                                </button>
+                              </div>
                             </div>
+                            {verificationResults.has(blockKey) && (
+                              <div className="mt-2 p-2 rounded text-xs">
+                                {verificationResults.get(blockKey).isValid ? (
+                                  <div className="bg-green-50 text-green-700 border border-green-200 rounded p-2">
+                                    ✓ Block integrity verified - Merkle root is valid
+                                  </div>
+                                ) : (
+                                  <div className="bg-red-50 text-red-700 border border-red-200 rounded p-2">
+                                    ✗{" "}
+                                    {verificationResults.get(blockKey).error ||
+                                      "Block integrity failed - Merkle root mismatch"}
+                                    {verificationResults.get(blockKey).expectedRoot && (
+                                      <div className="mt-1 text-xs">
+                                        Expected: {verificationResults.get(blockKey).expectedRoot?.substring(0, 16)}...
+                                      </div>
+                                    )}
+                                    {verificationResults.get(blockKey).message && (
+                                      <div className="mt-1 text-xs text-orange-600">
+                                        {verificationResults.get(blockKey).message}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
 
@@ -375,6 +554,15 @@ const BlockchainExplorer = () => {
                                         </span>
                                         <span className="text-sm font-mono text-gray-600">{tx.ID}</span>
                                       </div>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          verifyTransactionInclusion(block, tx)
+                                        }}
+                                        className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200"
+                                      >
+                                        Verify Inclusion
+                                      </button>
                                     </div>
 
                                     <div className="flex items-center justify-between text-sm">
@@ -471,6 +659,121 @@ const BlockchainExplorer = () => {
                       </p>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Transaction Merkle Proof Modal */}
+          {selectedTransactionProof && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Transaction Merkle Proof</h3>
+                    <button
+                      onClick={() => setSelectedTransactionProof(null)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <span className="sr-only">Close</span>
+                      <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-6">
+                  <div className="mb-6">
+                    {selectedTransactionProof.isValid ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <CheckCircle className="w-5 h-5 text-green-500 mr-2" />
+                          <span className="text-green-800 font-semibold">Transaction Successfully Verified</span>
+                        </div>
+                        <p className="text-green-700 text-sm mt-1">
+                          This transaction is cryptographically proven to be included in Block #
+                          {selectedTransactionProof.block.Index}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <XCircle className="w-5 h-5 text-red-500 mr-2" />
+                          <span className="text-red-800 font-semibold">Transaction Verification Failed</span>
+                        </div>
+                        <p className="text-red-700 text-sm mt-1">
+                          This transaction could not be verified as part of the block
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Transaction Details</h4>
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                        <div>
+                          <span className="text-xs text-gray-500">Transaction ID:</span>
+                          <p className="font-mono text-xs break-all">{selectedTransactionProof.transaction.ID}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-500">From:</span>
+                          <p className="font-mono text-xs">{selectedTransactionProof.transaction.Sender}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-500">To:</span>
+                          <p className="font-mono text-xs">{selectedTransactionProof.transaction.Receiver}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Block Information</h4>
+                      <div className="bg-gray-50 rounded-lg p-4 space-y-2">
+                        <div>
+                          <span className="text-xs text-gray-500">Block Index:</span>
+                          <p className="font-mono text-xs">#{selectedTransactionProof.block.Index}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-500">Merkle Root:</span>
+                          <p className="font-mono text-xs break-all">{selectedTransactionProof.merkleRoot}</p>
+                        </div>
+                        <div>
+                          <span className="text-xs text-gray-500">Total Transactions:</span>
+                          <p className="font-mono text-xs">
+                            {selectedTransactionProof.block.Transactions?.length || 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedTransactionProof.error && (
+                    <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-yellow-800 text-sm">{selectedTransactionProof.error}</p>
+                    </div>
+                  )}
+
+                  {selectedTransactionProof.proof && (
+                    <div className="mt-6">
+                      <h4 className="text-sm font-semibold text-gray-700 mb-3">Merkle Proof Path</h4>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <p className="text-xs text-gray-600 mb-3">
+                          The following hashes prove this transaction is included in the Merkle tree:
+                        </p>
+                        <div className="space-y-2">
+                          {selectedTransactionProof.proof.map((step, index) => (
+                            <div key={index} className="flex items-center space-x-2 text-xs">
+                              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Step {index + 1}</span>
+                              <span className="text-gray-600">{step.isLeft ? "Left:" : "Right:"}</span>
+                              <span className="font-mono text-gray-800 break-all">{step.hash}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

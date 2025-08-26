@@ -45,7 +45,7 @@ func NewBlock(index int, transactions []Transaction, prevHash string) *Block {
 // GenerateHash calculates the SHA-256 hash of this block's contents.
 // This ensures the block's data has not been tampered with.
 func (b *Block) GenerateHash() {
-	// Include MerkleRoot in hash calculation for enhanced security
+	// Include MerkleRoot and Nonce in hash calculation for enhanced security
 	data := strconv.Itoa(b.Index) + b.Timestamp + b.PrevHash + b.MerkleRoot + strconv.Itoa(b.Nonce)
 	hash := sha256.Sum256([]byte(data))
 	b.Hash = hex.EncodeToString(hash[:])
@@ -132,5 +132,24 @@ func (b *Block) DemonstrateIntegrityBreach() {
 
 		// Restore original value
 		b.Transactions[0].Receiver = originalReceiver
+	}
+}
+
+// MineBlock performs proof of work to find a valid nonce
+func (b *Block) MineBlock(difficulty int) {
+	target := ""
+	for i := 0; i < difficulty; i++ {
+		target += "0"
+	}
+
+	fmt.Printf("Mining block with difficulty %d (target: %s...)\n", difficulty, target)
+
+	for {
+		b.GenerateHash()
+		if b.Hash[:difficulty] == target {
+			fmt.Printf("Block mined! Nonce: %d, Hash: %s\n", b.Nonce, b.Hash)
+			break
+		}
+		b.Nonce++
 	}
 }
