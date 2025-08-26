@@ -303,6 +303,9 @@ func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Candidate added successfully, now saving...")
 
+	tx := blockchain.NewTransaction("admin", req.ID, "ADD_CANDIDATE")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -474,6 +477,9 @@ func HandleAddParty(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Party added successfully, now saving...")
 
+	tx := blockchain.NewTransaction("admin", req.ID, "ADD_PARTY")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -549,6 +555,9 @@ func HandleDeleteParty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx := blockchain.NewTransaction("admin", id, "DELETE_PARTY")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	log.Println("Party deleted successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -592,6 +601,9 @@ func HandleStartElection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx := blockchain.NewTransaction("admin", "election", "START_ELECTION")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	log.Println("Election started successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -615,6 +627,9 @@ func HandleStopElection(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	tx := blockchain.NewTransaction("admin", "election", "STOP_ELECTION")
+	chain.AddBlock([]blockchain.Transaction{tx})
 
 	log.Println("Election stopped successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
@@ -879,6 +894,9 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	tx := blockchain.NewTransaction("admin", id, "DELETE_USER")
+	chain.AddBlock([]blockchain.Transaction{tx})
 
 	log.Println("User deleted successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
