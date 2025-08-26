@@ -1009,17 +1009,17 @@ func getBlockchainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	blocks, err := blockchain.LoadBlocks() // no args
+	blocks, err := blockchain.LoadBlocks()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to load blockchain"})
 		return
 	}
 
-	// Ensure slices are non-nil for all blocks
+	// Ensure Transactions slice is non-nil for JSON serialization
 	for i := range blocks {
 		if blocks[i].Transactions == nil {
-			blocks[i].Transactions = make([]blockchain.Transaction, 0)
+			blocks[i].Transactions = []blockchain.Transaction{}
 		}
 	}
 

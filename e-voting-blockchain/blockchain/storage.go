@@ -1,6 +1,7 @@
 package blockchain
 
 import (
+	"encoding/binary"
 	"encoding/json"
 	"log"
 
@@ -48,7 +49,6 @@ func LoadBlocks() ([]Block, error) {
 
 	err := db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
-
 		return b.ForEach(func(k, v []byte) error {
 			var block Block
 			if err := json.Unmarshal(v, &block); err != nil {
@@ -58,11 +58,29 @@ func LoadBlocks() ([]Block, error) {
 			return nil
 		})
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return blocks, err
+	// Sort blocks by Index (important because BoltDB does not guarantee order)
+	for i := 0; i < len(blocks)-1; i++ {
+		for j := i + 1; j < len(blocks); j++ {
+			if blocks[i].Index > blocks[j].Index {
+				blocks[i], blocks[j] = blocks[j], blocks[i]
+			}
+		}
+	}
+
+	return blocks, nil
 }
 
 // itob converts an int to a byte slice (used as DB keys).
+//
+//	func itob(v int) []byte {
+//		return []byte(string(rune(v)))
+//	}
 func itob(v int) []byte {
-	return []byte(string(rune(v)))
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
 }

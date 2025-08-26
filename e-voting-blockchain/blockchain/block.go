@@ -11,11 +11,13 @@ import (
 // Block represents one unit in the blockchain.
 // A block stores multiple transactions and links to the previous block using its hash.
 type Block struct {
-	Index        int           `json:"index"`        // Position of the block in the chain (0 = genesis block)
-	Timestamp    string        `json:"timestamp"`    // Time at which the block was created
-	Transactions []Transaction `json:"transactions"` // Slice (list) of transactions contained in this block
-	PrevHash     string        `json:"prevHash"`     // Hash of the previous block (links the chain)
-	Hash         string        `json:"hash"`         // Hash of the current block (used for integrity)
+	Index        int           `json:"Index"`                // Position of the block in the chain (0 = genesis block)
+	Timestamp    string        `json:"Timestamp"`            // Time at which the block was created
+	Transactions []Transaction `json:"Transactions"`         // Slice (list) of transactions contained in this block
+	PrevHash     string        `json:"PrevHash"`             // Hash of the previous block (links the chain)
+	Hash         string        `json:"Hash"`                 // Hash of the current block (used for integrity)
+	Nonce        int           `json:"nonce,omitempty"`      // optional, used in frontend
+	MerkleRoot   string        `json:"merkleRoot,omitempty"` // optional
 }
 
 // GenerateHash calculates the SHA-256 hash of this block's contents.

@@ -1,87 +1,99 @@
-// cmd/inspect/main.go
-// Utility script for inspecting blockchain and election state
+//inspect/main.go
 
 package main
 
 import (
-	"e-voting-blockchain/blockchain"
-	"e-voting-blockchain/contracts"
+	"encoding/json"
 	"fmt"
 	"strings"
+
+	"e-voting-blockchain/blockchain"
+	"e-voting-blockchain/contracts"
 )
 
 func main() {
-	// --- Load and display blockchain data ---
 	fmt.Println("========== BLOCKCHAIN ==========")
+
+	// Init DB
 	blockchain.InitDB()
+	fmt.Println("DB initialized.")
+
+	// Try loading blocks
 	blocks, err := blockchain.LoadBlocks()
-	if err != nil || len(blocks) == 0 {
-		fmt.Println("No blocks found.")
-	} else {
-		for _, block := range blocks {
-			fmt.Printf("\n--- Block #%d ---\n", block.Index)
-			fmt.Printf("Timestamp : %s\n", block.Timestamp)
-			fmt.Printf("Hash      : %s\n", block.Hash)
-			fmt.Printf("PrevHash  : %s\n", block.PrevHash)
-			fmt.Println("Transactions:")
-			for _, tx := range block.Transactions {
-				printTransaction(tx)
-			}
-		}
+	if err != nil {
+		fmt.Println("Error loading blocks:", err)
+		return
 	}
 
-	// --- Load and display election state ---
+	fmt.Printf("Blocks loaded: %d\n", len(blocks))
+	if len(blocks) == 0 {
+		fmt.Println("No blocks found in the DB!")
+		return
+	}
+
+	for _, block := range blocks {
+		fmt.Printf("\n--- Block #%d ---\n", block.Index)
+		fmt.Printf("Timestamp : %s\n", block.Timestamp)
+		fmt.Printf("Hash      : %s\n", block.Hash)
+		fmt.Printf("PrevHash  : %s\n", block.PrevHash)
+		fmt.Printf("Transactions (%d):\n", len(block.Transactions))
+
+		for _, tx := range block.Transactions {
+			printTransaction(tx)
+		}
+
+		// Debug: show raw JSON
+		b, _ := json.MarshalIndent(block, "", "  ")
+		fmt.Println("Block JSON:", string(b))
+	}
+
 	fmt.Println("\n========== ELECTION STATE ==========")
 	election, err := contracts.LoadElection()
 	if err != nil {
 		fmt.Println("Error loading election.json:", err)
 		return
 	}
+	fmt.Println("Election loaded:", election)
+}
 
-	// List all candidates with full details
-	fmt.Println("\n--- CANDIDATES ---")
-	if len(election.Candidates) == 0 {
-		fmt.Println("No candidates registered.")
-	} else {
-		for id, candidate := range election.Candidates {
-			fmt.Printf("ID: %s\n", id)
-			fmt.Printf("  Name : %s\n", candidate.Name)
-			fmt.Printf("  Bio  : %s\n", candidate.Bio)
-			fmt.Printf("  Votes: %d\n", candidate.Votes)
-			fmt.Println()
-		}
+func printTransaction(tx blockchain.Transaction) {
+	txType := tx.Type
+	if txType == "" {
+		txType = guessTransactionType(tx.Payload)
 	}
 
-	// List all voters who have voted
-	fmt.Println("--- VOTERS WHO HAVE VOTED ---")
-	if len(election.Voters) == 0 {
-		fmt.Println("No votes cast yet.")
-	} else {
-		for voterID := range election.Voters {
-			fmt.Println(" -", voterID)
+	switch txType {
+	case "VOTE":
+		fmt.Printf("  [VOTE] %s -> %s (txID: %s)\n", tx.Sender, tx.Receiver, tx.ID)
+	case "ADD_CANDIDATE":
+		parts := strings.SplitN(tx.Payload, ":", 3)
+		if len(parts) == 3 {
+			fmt.Printf("  [ADD] '%s' (ID: %s) Bio: %s\n", parts[1], tx.Receiver, parts[2])
 		}
+	case "UPDATE_CANDIDATE":
+		parts := strings.SplitN(tx.Payload, ":", 3)
+		if len(parts) == 3 {
+			fmt.Printf("  [UPDATE] '%s' (ID: %s) Bio: %s\n", parts[1], tx.Receiver, parts[2])
+		}
+	case "REMOVE_CANDIDATE":
+		fmt.Printf("  [REMOVE] Candidate ID: %s\n", tx.Receiver)
+	default:
+		b, _ := json.MarshalIndent(tx, "", "  ")
+		fmt.Println("  [UNKNOWN TX] JSON:", string(b))
 	}
 }
 
-// Helper to print a transaction clearly
-func printTransaction(tx blockchain.Transaction) {
+func guessTransactionType(payload string) string {
 	switch {
-	case tx.Payload == "VOTE":
-		fmt.Printf("  [VOTE]     %s voted for %s (txID: %s)\n", tx.Sender, tx.Receiver, tx.ID)
-	case strings.HasPrefix(tx.Payload, "ADD_CANDIDATE:"):
-		parts := strings.SplitN(tx.Payload, ":", 3)
-		if len(parts) == 3 {
-			fmt.Printf("  [ADD]      Admin added candidate '%s' (ID: %s) — Bio: %s\n", parts[1], tx.Receiver, parts[2])
-		}
-	case strings.HasPrefix(tx.Payload, "UPDATE_CANDIDATE:"):
-		parts := strings.SplitN(tx.Payload, ":", 3)
-		if len(parts) == 3 {
-			fmt.Printf("  [UPDATE]   Admin updated candidate '%s' (ID: %s) — New Bio: %s\n", parts[1], tx.Receiver, parts[2])
-		}
-	case tx.Payload == "REMOVE_CANDIDATE":
-		fmt.Printf("  [REMOVE]   Admin removed candidate ID: %s\n", tx.Receiver)
+	case payload == "VOTE":
+		return "VOTE"
+	case strings.HasPrefix(payload, "ADD_CANDIDATE:"):
+		return "ADD_CANDIDATE"
+	case strings.HasPrefix(payload, "UPDATE_CANDIDATE:"):
+		return "UPDATE_CANDIDATE"
+	case payload == "REMOVE_CANDIDATE":
+		return "REMOVE_CANDIDATE"
 	default:
-		fmt.Printf("  [UNKNOWN]  txID: %s | Sender: %s | Receiver: %s | Payload: %s\n",
-			tx.ID, tx.Sender, tx.Receiver, tx.Payload)
+		return "UNKNOWN"
 	}
 }

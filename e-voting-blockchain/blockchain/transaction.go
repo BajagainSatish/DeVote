@@ -9,11 +9,13 @@ import (
 
 // Transaction represents one vote in the system.
 // A transaction is created when a voter casts a vote to a candidate.
+
 type Transaction struct {
-	ID       string // Unique identifier (hash) of the transaction
-	Sender   string // The voter's ID (usually hashed)
-	Receiver string // The candidate's ID
-	Payload  string // Optional data (in our case, "VOTE")
+	ID       string `json:"ID"`       // Added JSON tag for proper serialization, Unique identifier (hash) of the transaction
+	Sender   string `json:"Sender"`   // Added JSON tag for proper serialization, The voter's ID (usually hashed)
+	Receiver string `json:"Receiver"` // Added JSON tag for proper serialization, The candidate's ID
+	Payload  string `json:"Payload"`  // Added JSON tag for proper serialization, Optional data (in our case, "VOTE")
+	Type     string `json:"type,omitempty"`
 }
 
 // NewTransaction creates and returns a new transaction.
