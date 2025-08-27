@@ -24,6 +24,7 @@ func SetupRoutes() http.Handler {
 	r.HandleFunc("/election/results", HandleElectionResults).Methods("GET", "OPTIONS")
 	r.HandleFunc("/admin/registered-voters", HandleGetRegisteredVoters).Methods("GET", "OPTIONS")
 	r.HandleFunc("/blockchain", getBlockchainHandler).Methods("GET")
+	r.HandleFunc("/admin/registered-voters/{voterID}", HandleDeleteRegisteredVoter).Methods("DELETE") //route to delete a specific registered voter by VoterID was missing
 
 	// Admin-only routes with OPTIONS support
 	admin := r.PathPrefix("/admin").Subrouter()
@@ -45,6 +46,8 @@ func SetupRoutes() http.Handler {
 	admin.HandleFunc("/users/{id}", HandleGetUser).Methods("GET", "OPTIONS")
 	admin.HandleFunc("/users/{id}", HandleUpdateUser).Methods("PUT", "OPTIONS")
 	admin.HandleFunc("/users/{id}", HandleDeleteUser).Methods("DELETE", "OPTIONS")
+
+	admin.HandleFunc("/registered-voters", HandleDeleteRegisteredVoter).Methods("DELETE", "OPTIONS") // Delete all registered voters xuteko raixa
 
 	// Election management
 	admin.HandleFunc("/election/start", HandleStartElection).Methods("POST", "OPTIONS")

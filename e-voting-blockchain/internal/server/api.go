@@ -999,6 +999,7 @@ func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
 
 	voterID := mux.Vars(r)["voterID"]
 	log.Printf("Attempting to delete registered voter: %s", voterID)
+	
 
 	// Load current registered users
 	registeredUsers, err := contracts.LoadRegisteredUsers()
