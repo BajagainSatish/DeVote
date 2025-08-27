@@ -19,6 +19,13 @@ const Vote = () => {
   const [submitting, setSubmitting] = useState(false)
   const [electionStatus, setElectionStatus] = useState(null)
   const [filterParty, setFilterParty] = useState("all")
+  const [verificationMessage, setVerificationMessage] = useState("") // New state for anonymity verification
+  const [isVerifying, setIsVerifying] = useState(false) // New state for verification loading
+
+  // Storing necessary data for verification after a successful anonymous vote
+  const [lastVotedCandidateId, setLastVotedCandidateId] = useState(null)
+  const [lastVotedSignature, setLastVotedSignature] = useState(null)
+
 
   useEffect(() => {
     if (!username) {
@@ -45,6 +52,9 @@ const Vote = () => {
       const votedStatus = localStorage.getItem(`voted_${username}`)
       if (votedStatus) {
         setMessage("You have already cast your vote in this election.")
+        // Also load last vote details for verification if available
+        setLastVotedCandidateId(localStorage.getItem(`lastVotedCandidateId_${username}`))
+        setLastVotedSignature(localStorage.getItem(`lastVotedSignature_${username}`))
       }
     } catch (err) {
       setMessage("Failed to load voting data: " + err.message)
@@ -73,6 +83,7 @@ const Vote = () => {
 
     setSubmitting(true)
     setMessage("")
+    setVerificationMessage("") // Clear any previous verification messages
 
     try {
       // Extract voter ID from username (remove "voter_" prefix)
@@ -115,8 +126,8 @@ const Vote = () => {
       })
       if (!pubRes.ok) throw new Error("Failed to fetch election public key")
       const pub = await pubRes.json()
-      const nHex = pub.nHex
-      const eHex = pub.eHex // e in hex (or decimal string) depending on server
+      const nHex = pub.n
+      const eHex = pub.e // e in hex (or decimal string) depending on server
 
       // 4) Blind the ballot locally
       const eDec = parseInt(eHex, 16) // adapt if server returns decimal string
@@ -162,6 +173,12 @@ const Vote = () => {
 
       // Success: mark as voted (client-side)
       localStorage.setItem(`voted_${username}`, "true")
+      // Store info needed for verification
+      localStorage.setItem(`lastVotedCandidateId_${username}`, selectedId)
+      localStorage.setItem(`lastVotedSignature_${username}`, unblindedSigHex)
+      setLastVotedCandidateId(selectedId)
+      setLastVotedSignature(unblindedSigHex)
+
 
       setMessage("Vote cast successfully (anonymous). Thank you for participating.")
       setSelectedId("")
@@ -183,6 +200,68 @@ const Vote = () => {
     }
   }
   // ---------- END handleVote ----------
+
+  // ---------- NEW: handleVerifyAnonymity ----------
+  const handleVerifyAnonymity = async () => {
+    setVerificationMessage("")
+    setIsVerifying(true)
+
+    // Ensure we have the last vote details to verify
+    if (!lastVotedCandidateId || !lastVotedSignature) {
+      setVerificationMessage("No anonymous vote found to verify. Please cast your vote first.")
+      setIsVerifying(false)
+      return
+    }
+
+    try {
+      // 1) Fetch authority public key (n, e) from server
+      const pubRes = await fetch("/pubkey", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      })
+      if (!pubRes.ok) throw new Error("Failed to fetch election public key")
+      // const pub = await pubRes.json()
+      // const nHex = pub.n
+      // const eHex = pub.e
+
+      // Build canonical ballot string (must match exactly what was signed)
+      const ballotStr = `VOTE:${lastVotedCandidateId}`
+
+      // 2) Send the original ballot string and the unblinded signature to the backend for verification
+      // We need a new backend endpoint for this: /verify-anonymous-vote
+      const verifyRes = await fetch("/verify-anonymous-vote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ballot: ballotStr,
+          signature: lastVotedSignature,
+        }),
+      })
+
+      if (!verifyRes.ok) {
+        const text = await verifyRes.text()
+        throw new Error("Verification failed: " + text)
+      }
+
+      const verifyJson = await verifyRes.json()
+
+      if (verifyJson.isAnonymous && verifyJson.isValid) {
+        setVerificationMessage(
+          `Verification successful! Your vote for "${candidates.find(c => c.candidateId === lastVotedCandidateId)?.name}" was recorded anonymously and cannot be linked to your identity. Transaction ID: ${verifyJson.transactionId}`
+        )
+      } else {
+        setVerificationMessage("Verification failed: Could not confirm the anonymity of your vote. Please contact support.")
+      }
+    } catch (err) {
+      console.error("Anonymity verification error:", err)
+      setVerificationMessage(`Anonymity verification failed: ${err.message}`)
+    } finally {
+      setIsVerifying(false)
+    }
+  }
+  // ---------- END handleVerifyAnonymity ----------
 
   const filteredCandidates = filterParty === "all" ? candidates : candidates.filter((c) => c.partyId === filterParty)
 
@@ -351,6 +430,34 @@ const Vote = () => {
             )}
           </div>
         )}
+
+        {/* NEW: Verify Anonymity Section */}
+        {localStorage.getItem(`voted_${username}`) && (lastVotedCandidateId && lastVotedSignature) && (
+          <div className="mt-8 pt-8 border-t border-gray-200 text-center">
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Verify My Anonymous Vote</h2>
+            <p className="text-gray-600 mb-4">
+              Click the button below to verify that your previously cast vote was recorded anonymously on the blockchain.
+              This confirms that your vote cannot be linked back to your identity.
+            </p>
+            <button
+              onClick={handleVerifyAnonymity}
+              disabled={isVerifying}
+              className={`px-8 py-3 rounded-md font-semibold transition ${isVerifying ? "bg-gray-300 text-gray-500 cursor-not-allowed" : "bg-blue-600 text-white hover:bg-blue-700"}`}
+            >
+              {isVerifying ? "Verifying..." : "Verify My Vote Anonymity"}
+            </button>
+            {verificationMessage && (
+              <div
+                className={`mt-4 p-4 rounded-lg ${
+                  verificationMessage.includes("successful") ? "bg-green-100 border border-green-400 text-green-700" : "bg-red-100 border border-red-400 text-red-700"
+                }`}
+              >
+                {verificationMessage}
+              </div>
+            )}
+          </div>
+        )}
+
       </main>
 
       <Footer />
