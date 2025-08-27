@@ -178,6 +178,26 @@ const BlockchainExplorer = () => {
     return "UNKNOWN"
   }
 
+  const getTransactionLabels = (type) => {
+    switch (type) {
+      case "VOTE":
+        return { from: "From", to: "To" }
+      case "ADD_CANDIDATE":
+      case "UPDATE_CANDIDATE":
+      case "REMOVE_CANDIDATE":
+        return { from: "Admin", to: "Candidate" }
+      case "ADD_PARTY":
+      case "UPDATE_PARTY":
+      case "DELETE_PARTY":
+        return { from: "Admin", to: "Party" }
+      case "START_ELECTION":
+      case "STOP_ELECTION":
+        return { from: "Admin", to: "Election" }
+      default:
+        return { from: "From", to: "To" }
+    }
+  }
+
   const filteredBlocks = blocks.filter((block) => {
     if (filter === "votes") {
       return block.Transactions && block.Transactions.some((tx) => getTransactionType(tx) === "VOTE")
@@ -234,6 +254,25 @@ const BlockchainExplorer = () => {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 500))
+
+      if (block.Index === 0 && !block.merkleRoot && !block.MerkleRoot) {
+        console.log("[v0] Genesis block detected - this is expected behavior")
+        setVerificationResults(
+          (prev) =>
+            new Map([
+              ...prev,
+              [
+                blockKey,
+                {
+                  isValid: true,
+                  isGenesis: true,
+                  message: "Genesis block - no Merkle root required",
+                },
+              ],
+            ]),
+        )
+        return
+      }
 
       if (!block.merkleRoot && !block.MerkleRoot) {
         console.log("[v0] Block has no Merkle root, calculating expected root for comparison")
@@ -335,6 +374,7 @@ const BlockchainExplorer = () => {
         merkleRoot,
         proofLength: proof?.length || 0,
         isValid,
+        totalTransactions: block.Transactions?.length || 0,
       })
 
       setSelectedTransactionProof({
@@ -343,6 +383,7 @@ const BlockchainExplorer = () => {
         proof,
         isValid,
         merkleRoot,
+        isSingleTransaction: block.Transactions?.length === 1,
       })
     } catch (error) {
       console.error("Transaction verification failed:", error)
@@ -364,7 +405,7 @@ const BlockchainExplorer = () => {
     const result = verificationResults.get(blockKey)
     if (!result) return null
 
-    return result.isValid ? (
+    return result.isValid || result.isGenesis ? (
       <CheckCircle className="w-4 h-4 text-green-500" />
     ) : (
       <XCircle className="w-4 h-4 text-red-500" />
@@ -605,9 +646,12 @@ const BlockchainExplorer = () => {
                             </div>
                             {verificationResults.has(blockKey) && (
                               <div className="mt-2 p-2 rounded text-xs">
-                                {verificationResults.get(blockKey).isValid ? (
+                                {verificationResults.get(blockKey).isValid ||
+                                verificationResults.get(blockKey).isGenesis ? (
                                   <div className="bg-green-50 text-green-700 border border-green-200 rounded p-2">
-                                    ✓ Block integrity verified - Merkle root is valid
+                                    {verificationResults.get(blockKey).isGenesis
+                                      ? "✓ Genesis block - no Merkle root required (expected behavior)"
+                                      : "✓ Block integrity verified - Merkle root is valid"}
                                   </div>
                                 ) : (
                                   <div className="bg-red-50 text-red-700 border border-red-200 rounded p-2">
@@ -655,6 +699,7 @@ const BlockchainExplorer = () => {
                               {block.Transactions.map((tx, txIndex) => {
                                 const txType = getTransactionType(tx)
                                 const parsedPayload = parseTransactionPayload(tx.Payload, txType)
+                                const labels = getTransactionLabels(txType)
                                 return (
                                   <div
                                     key={`${tx.ID}-${txIndex}`}
@@ -684,11 +729,11 @@ const BlockchainExplorer = () => {
 
                                     <div className="flex items-center justify-between text-sm">
                                       <div>
-                                        <span className="text-gray-600">From:</span>
+                                        <span className="text-gray-600">{labels.from}:</span>
                                         <span className="ml-2 font-mono text-gray-800">{tx.Sender}</span>
                                       </div>
                                       <div>
-                                        <span className="text-gray-600">To:</span>
+                                        <span className="text-gray-600">{labels.to}:</span>
                                         <span className="ml-2 font-mono text-sm">{tx.Receiver}</span>
                                       </div>
                                     </div>
@@ -763,13 +808,17 @@ const BlockchainExplorer = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-semibold text-gray-700">From</label>
+                    <label className="text-sm font-semibold text-gray-700">
+                      {getTransactionLabels(getTransactionType(selectedTransaction)).from}
+                    </label>
                     <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
                       {selectedTransaction.Sender}
                     </p>
                   </div>
                   <div>
-                    <label className="text-sm font-semibold text-gray-700">To</label>
+                    <label className="text-sm font-semibold text-gray-700">
+                      {getTransactionLabels(getTransactionType(selectedTransaction)).to}
+                    </label>
                     <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
                       {selectedTransaction.Receiver}
                     </p>
@@ -883,7 +932,7 @@ const BlockchainExplorer = () => {
                 </div>
               )}
 
-              {selectedTransactionProof.proof && (
+              {selectedTransactionProof.proof && selectedTransactionProof.proof.length > 0 ? (
                 <div className="mt-6">
                   <h4 className="text-sm font-semibold text-gray-700 mb-3">Merkle Proof Path</h4>
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -894,11 +943,31 @@ const BlockchainExplorer = () => {
                       {selectedTransactionProof.proof.map((step, index) => (
                         <div key={index} className="flex items-center space-x-2 text-xs">
                           <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded">Step {index + 1}</span>
-                          <span className="text-gray-600">{step.isLeft ? "Left:" : "Right:"}</span>
+                          <span className="text-gray-600">{step.position === "left" ? "Left:" : "Right:"}</span>
                           <span className="font-mono text-gray-800 break-all">{step.hash}</span>
                         </div>
                       ))}
                     </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Merkle Proof Path</h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    {selectedTransactionProof.isSingleTransaction ? (
+                      <div className="text-center py-4">
+                        <Hash className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                        <p className="text-xs text-gray-600 mb-1">No proof path required</p>
+                        <p className="text-xs text-gray-500">
+                          This block contains only one transaction, so it serves as its own Merkle root.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4">
+                        <AlertCircle className="w-8 h-8 text-yellow-400 mx-auto mb-2" />
+                        <p className="text-xs text-gray-600">No proof path available</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

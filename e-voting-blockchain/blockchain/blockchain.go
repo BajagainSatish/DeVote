@@ -240,12 +240,22 @@ func (bc *Blockchain) RecomputeMerkleRootsAndHashes() error {
 
 	for i := range bc.Blocks {
 		b := &bc.Blocks[i]
-		b.MerkleRoot = ComputeMerkleRoot(b.Transactions) // uses new merkle.go hashTransaction
-		b.GenerateHash()                                 // recalc block Hash using Timestamp/PrevHash/MerkleRoot/Nonce
+
+		// Fix up PrevHash for every block except genesis
+		if i > 0 {
+			b.PrevHash = bc.Blocks[i-1].Hash
+		}
+
+		// Always recompute Merkle root
+		b.MerkleRoot = ComputeMerkleRoot(b.Transactions)
+
+		// Recompute block hash using finalized PrevHash + MerkleRoot
+		b.GenerateHash()
+
 		if err := SaveBlock(*b); err != nil {
 			return err
 		}
-		fmt.Printf("Recomputed Block #%d MerkleRoot: %s\n", b.Index, b.MerkleRoot)
+		fmt.Printf("Recomputed Block #%d PrevHash: %s Hash: %s\n", b.Index, b.PrevHash, b.Hash)
 	}
 	return nil
 }
