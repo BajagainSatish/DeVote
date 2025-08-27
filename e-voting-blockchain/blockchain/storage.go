@@ -1,7 +1,9 @@
 package blockchain
 
 import (
+	"encoding/binary"
 	"encoding/json"
+	"errors"
 	"log"
 
 	"go.etcd.io/bbolt"
@@ -10,6 +12,7 @@ import (
 var db *bbolt.DB
 
 const bucketName = "Blocks"
+const anonBucketName = "AnonTokens"
 
 // InitDB opens or creates the blockchain DB file.
 func InitDB() {
@@ -22,6 +25,10 @@ func InitDB() {
 	// Create bucket if not exists
 	db.Update(func(tx *bbolt.Tx) error {
 		_, err := tx.CreateBucketIfNotExists([]byte(bucketName))
+		if err != nil {
+			return err
+		}
+		_, err = tx.CreateBucketIfNotExists([]byte(anonBucketName))
 		return err
 	})
 }
@@ -48,7 +55,10 @@ func LoadBlocks() ([]Block, error) {
 
 	err := db.View(func(tx *bbolt.Tx) error {
 		b := tx.Bucket([]byte(bucketName))
-
+		if b == nil {
+			// No blocks yet, return empty slice
+			return nil
+		}
 		return b.ForEach(func(k, v []byte) error {
 			var block Block
 			if err := json.Unmarshal(v, &block); err != nil {
@@ -58,11 +68,60 @@ func LoadBlocks() ([]Block, error) {
 			return nil
 		})
 	})
+	if err != nil {
+		return nil, err
+	}
 
-	return blocks, err
+	// Sort blocks by Index (important because BoltDB does not guarantee order)
+	for i := 0; i < len(blocks)-1; i++ {
+		for j := i + 1; j < len(blocks); j++ {
+			if blocks[i].Index > blocks[j].Index {
+				blocks[i], blocks[j] = blocks[j], blocks[i]
+			}
+		}
+	}
+
+	// Ensure slices are non-nil for all transactions
+	for i := range blocks {
+		if blocks[i].Transactions == nil {
+			blocks[i].Transactions = make([]Transaction, 0)
+		}
+	}
+
+	return blocks, nil
 }
 
 // itob converts an int to a byte slice (used as DB keys).
+//
+//	func itob(v int) []byte {
+//		return []byte(string(rune(v)))
+//	}
 func itob(v int) []byte {
-	return []byte(string(rune(v)))
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, uint64(v))
+	return b
+}
+
+func isAnonTokenUsed(tokenKey string) (bool, error) {
+	var exists bool
+	err := db.View(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(anonBucketName))
+		if b == nil {
+			return errors.New("anon bucket missing")
+		}
+		v := b.Get([]byte(tokenKey))
+		exists = v != nil
+		return nil
+	})
+	return exists, err
+}
+
+func markAnonTokenUsed(tokenKey string) error {
+	return db.Update(func(tx *bbolt.Tx) error {
+		b := tx.Bucket([]byte(anonBucketName))
+		if b == nil {
+			return errors.New("anon bucket missing")
+		}
+		return b.Put([]byte(tokenKey), []byte{1})
+	})
 }

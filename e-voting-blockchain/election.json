@@ -3,83 +3,46 @@
     "kp10": {
       "candidateId": "kp10",
       "name": "KP Oli",
-      "bio": "",
-      "partyId": "uml",
-      "partyName": "CPN-UML",
-      "age": 80,
+      "bio": "kp chor desh xod edited",
+      "partyId": "emale",
+      "partyName": "UML",
+      "age": 77,
       "imageUrl": "https://th-i.thgim.com/public/news/international/iig8wn/article31878366.ece/alternates/BASE_SQUARE/TH21sharma-oliArt",
       "votes": 0
-    },
-    "rabi123": {
-      "candidateId": "rabi123",
-      "name": "Rabi Lamichhane",
-      "bio": "Rabi Lamichhane (रवि लामिछाने) is a Nepalese politician who served as Deputy Prime Minister and Home Minister of Nepal. He has also been serving as the president of the Rastriya Swatantra Party since 2022. An ex-journalist, Lamichhane became a member of the House of Representatives from Chitwan 2 on 28 April 2023, having previously represented the constituency from December 2022 to January 2023 before being stripped of his position by the Supreme Court.\n\nHe is in jail right now.",
-      "partyId": "raswapa",
-      "partyName": "Rastriya Swatantra Party",
-      "age": 49,
-      "imageUrl": "https://i.scdn.co/image/ab67616d00001e02bcd36b955da3be34c834a8e5",
-      "votes": 1
     },
     "shere123": {
       "candidateId": "shere123",
       "name": "Sher Bahadur Deuba",
-      "bio": "",
+      "bio": "deuba",
       "partyId": "nepaliCongress",
       "partyName": "Nepali Congress",
-      "age": 0,
+      "age": 74,
       "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiSnsRpnUkXRwKeDmTg71lQbuJ2kxcAdBl4KIEekjHHem72i2G2cfwweC2JevQGtuiEzU_S3Kd_AaeCKXq8Mrq3zKLFM0epFrEGZkh1tkMqsdiZ4McHVmR3xk7DXfr9CoiLMxxoC5fMqeS2qA69Ack2AS9T2xa9JCqPQzzKTAO0oRmItQHCBtQ/s600/deubaaaaaaa.jpg",
-      "votes": 0
-    },
-    "sobita123": {
-      "candidateId": "sobita123",
-      "name": "Sobita Gautam",
-      "bio": "",
-      "partyId": "raswapa",
-      "partyName": "Rastriya Swatantra Party",
-      "age": 0,
-      "imageUrl": "https://assets.deshsanchar.com/wp-content/uploads/2023/01/21133843/Sobita-Gautam_Samsad-1.jpg",
-      "votes": 0
-    },
-    "toshima123": {
-      "candidateId": "toshima123",
-      "name": "Toshima Karki",
-      "bio": "",
-      "partyId": "raswapa",
-      "partyName": "Rastriya Swatantra Party",
-      "age": 0,
-      "imageUrl": "https://english.pardafas.com/wp-content/uploads/2022/11/tosima-karki.jpg",
       "votes": 1
     }
   },
   "voters": {
-    "v1": true,
-    "v3": true
+    "v1": true
   },
   "users": {},
   "parties": {
+    "emale": {
+      "id": "emale",
+      "name": "UML",
+      "description": "emale emale emale",
+      "color": "#da2316"
+    },
     "nepaliCongress": {
       "id": "nepaliCongress",
       "name": "Nepali Congress",
-      "description": "A big party.",
-      "color": "#00ff1e"
-    },
-    "raswapa": {
-      "id": "raswapa",
-      "name": "Rastriya Swatantra Party",
-      "description": "rabi",
-      "color": "#00e1ff"
-    },
-    "uml": {
-      "id": "uml",
-      "name": "CPN-UML",
-      "description": "kpoli.",
-      "color": "#f82020"
+      "description": "deuba deuba deuba",
+      "color": "#21978B"
     }
   },
   "status": {
     "isActive": true,
-    "startTime": "2025-07-10T23:58:11.840181+05:45",
-    "endTime": "2025-07-11T23:58:11.840181+05:45",
-    "description": "Test Election"
+    "startTime": "2025-08-27T16:55:45.0016436+05:45",
+    "endTime": "2025-08-27T18:55:45.0016436+05:45",
+    "description": "test voter anonymity"
   }
 }

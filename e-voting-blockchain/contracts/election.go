@@ -150,6 +150,25 @@ func (e *Election) StartElection(description string, duration time.Duration) err
 	if e.Status.IsActive {
 		return errors.New("election is already active")
 	}
+
+	e.initializeMaps()
+
+	// Clear all previous votes
+	e.Voters = make(map[string]bool)
+
+	// Reset all users' voting status
+	for userID, user := range e.Users {
+		user.HasVoted = false
+		user.VotedAt = time.Time{} // Reset to zero time
+		e.Users[userID] = user
+	}
+
+	// Reset all candidates' vote counts
+	for candidateID, candidate := range e.Candidates {
+		candidate.Votes = 0
+		e.Candidates[candidateID] = candidate
+	}
+
 	now := time.Now()
 	e.Status = ElectionStatus{
 		IsActive:    true,

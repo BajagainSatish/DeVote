@@ -1,13 +1,12 @@
-//client/src/pages/Vote.jsx
-
-"use client"
+// client/src/pages/Vote.jsx
 import React from "react"
+"use client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { UseAuth } from "../context/AuthContext"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
-import VotingApiService from "../services/api"
+import VotingApiService from "../services/api" // keep using for fallback/other APIs
 
 const Vote = () => {
   const { username } = UseAuth()
@@ -54,6 +53,7 @@ const Vote = () => {
     }
   }
 
+  // ---------- NEW: anonymous blind-signature flow in handleVote ----------
   const handleVote = async () => {
     if (!selectedId) {
       setMessage("Please select a candidate before voting.")
@@ -78,24 +78,95 @@ const Vote = () => {
       // Extract voter ID from username (remove "voter_" prefix)
       const voterID = username.replace("voter_", "")
 
-      const payload = {
-        voterID: voterID,
-        candidateID: selectedId,
-        name: "", // Backend will fetch these from registered users
-        dob: "",
+      // 1) Server-side eligibility checks (same as before) — call existing castVote validation endpoint,
+      // but only use it to mark "voted" server-side. We'll call a lightweight eligibility endpoint before blind flow.
+
+      if (VotingApiService.validateAndMarkVoter) {
+        // server marks the voter as having voted (off-chain) and returns success
+        await VotingApiService.validateAndMarkVoter({ voterID, candidateID: selectedId })
+      } else if (VotingApiService.castVote) {
+        // fallback (if backend hasn't implemented anon endpoints): call the existing castVote (non-anon)
+        // This will store the vote as before (not anonymous). You can remove this fallback when your backend has anon flow.
+        await VotingApiService.castVote({ voterID, candidateID: selectedId, name: "", dob: "" })
+        // mark voted in localStorage and exit
+        localStorage.setItem(`voted_${username}`, "true")
+        setMessage("Vote cast successfully (non-anonymous fallback).")
+        setSelectedId("")
+        setSubmitting(false)
+        setTimeout(() => navigate("/dashboard"), 2000)
+        return
+      } else {
+        throw new Error("Server validation API not found; please provide VotingApiService.validateAndMarkVoter or implement anon endpoints")
       }
 
-      console.log("Sending vote payload:", payload)
+      // 2) At this point the server has validated and marked the voter as voted (off-chain). Next do blind signature flow.
 
-      await VotingApiService.castVote(payload)
+      // Build canonical ballot string. Keep this exactly stable on client + server.
+      // We're using a simple canonical format "VOTE:<candidateID>"
+      const ballotStr = `VOTE:${selectedId}`
 
-      // Mark as voted in localStorage
+      // 3) Fetch authority public key (n, e) from server
+      // Endpoint expected: GET /pubkey -> { nHex, eHex }
+      const pubRes = await fetch("/pubkey", {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+        // If your auth is via cookie/session, keep credentials include:
+        // credentials: "include"
+      })
+      if (!pubRes.ok) throw new Error("Failed to fetch election public key")
+      const pub = await pubRes.json()
+      const nHex = pub.nHex
+      const eHex = pub.eHex // e in hex (or decimal string) depending on server
+
+      // 4) Blind the ballot locally
+      const eDec = parseInt(eHex, 16) // adapt if server returns decimal string
+      const { blindedHex, r } = await blindMessage(ballotStr, nHex, eDec)
+
+      // 5) Send blindedHex to server to be signed (authenticated request!)
+      // IMPORTANT: /issue-blind-signature must be called with the same authentication used by your app
+      // so the authority can verify eligibility before signing the blinded payload.
+      // Replace how you send auth below if you use token auth.
+      const issueRes = await fetch("/issue-blind-signature", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          // If you use bearer token: "Authorization": `Bearer ${localStorage.getItem('token')}`
+        },
+        // include credentials if session cookie auth:
+        // credentials: "include",
+        body: JSON.stringify({ blinded: blindedHex }),
+      })
+      if (!issueRes.ok) {
+        const text = await issueRes.text()
+        throw new Error("Failed to obtain blind signature: " + text)
+      }
+      const issueJson = await issueRes.json()
+      const blindedSignatureHex = issueJson.blinded_signature
+      if (!blindedSignatureHex) throw new Error("Server returned empty blinded signature")
+
+      // 6) Unblind locally to obtain final signature
+      const unblindedSigHex = unblindSignature(blindedSignatureHex, r, nHex)
+
+      // 7) Submit anonymous ballot + signature
+      const submitRes = await fetch("/submit-anonymous-vote", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ballot: ballotStr, signature: unblindedSigHex }),
+      })
+      if (!submitRes.ok) {
+        const text = await submitRes.text()
+        throw new Error("Anonymous vote submission failed: " + text)
+      }
+
+      // Success: mark as voted (client-side)
       localStorage.setItem(`voted_${username}`, "true")
 
-      setMessage("Vote cast successfully! Thank you for participating.")
-      setSelectedId("") // Clear selection
+      setMessage("Vote cast successfully (anonymous). Thank you for participating.")
+      setSelectedId("")
 
-      // Redirect to dashboard after a delay
+      // Redirect to dashboard
       setTimeout(() => {
         navigate("/dashboard")
       }, 3000)
@@ -111,6 +182,7 @@ const Vote = () => {
       setSubmitting(false)
     }
   }
+  // ---------- END handleVote ----------
 
   const filteredCandidates = filterParty === "all" ? candidates : candidates.filter((c) => c.partyId === filterParty)
 
@@ -173,9 +245,7 @@ const Vote = () => {
         {message && (
           <div
             className={`mb-6 p-4 rounded-lg ${
-              message.includes("successfully")
-                ? "bg-green-100 border border-green-400 text-green-700"
-                : "bg-red-100 border border-red-400 text-red-700"
+              message.includes("successfully") ? "bg-green-100 border border-green-400 text-green-700" : "bg-red-100 border border-red-400 text-red-700"
             }`}
           >
             {message}
@@ -195,11 +265,7 @@ const Vote = () => {
         {parties.length > 0 && (
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Party:</label>
-            <select
-              value={filterParty}
-              onChange={(e) => setFilterParty(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#21978B]"
-            >
+            <select value={filterParty} onChange={(e) => setFilterParty(e.target.value)} className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#21978B]">
               <option value="all">All Parties</option>
               {parties.map((party) => (
                 <option key={party.id} value={party.id}>
@@ -218,20 +284,14 @@ const Vote = () => {
                 key={candidate.candidateId}
                 onClick={() => setSelectedId(candidate.candidateId)}
                 className={`p-6 rounded-lg border-2 transition duration-200 cursor-pointer shadow-sm hover:shadow-md ${
-                  selectedId === candidate.candidateId
-                    ? "border-[#21978B] bg-[#e6f6f4]"
-                    : "border-gray-300 bg-white hover:border-gray-400"
+                  selectedId === candidate.candidateId ? "border-[#21978B] bg-[#e6f6f4]" : "border-gray-300 bg-white hover:border-gray-400"
                 }`}
               >
                 <div className="flex items-start space-x-4">
                   {/* Candidate Image */}
                   <div className="flex-shrink-0">
                     {candidate.imageUrl ? (
-                      <img
-                        src={candidate.imageUrl || "/placeholder.svg"}
-                        alt={candidate.name}
-                        className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
-                      />
+                      <img src={candidate.imageUrl || "/placeholder.svg"} alt={candidate.name} className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
                     ) : (
                       <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
                         <span className="text-2xl font-bold text-gray-500">{candidate.name.charAt(0)}</span>
@@ -248,10 +308,7 @@ const Vote = () => {
 
                     {/* Party Info */}
                     <div className="flex items-center space-x-2 mb-3">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: getPartyColor(candidate.partyId) }}
-                      ></div>
+                      <div className="w-4 h-4 rounded-full" style={{ backgroundColor: getPartyColor(candidate.partyId) }}></div>
                       <span className="text-sm font-medium text-gray-700">{getPartyName(candidate.partyId)}</span>
                     </div>
 
@@ -263,11 +320,7 @@ const Vote = () => {
                       <div className="flex items-center space-x-2">
                         <div className="w-5 h-5 bg-[#21978B] rounded-full flex items-center justify-center">
                           <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                           </svg>
                         </div>
                         <span className="text-sm text-[#21978B] font-medium">Selected</span>
@@ -280,26 +333,14 @@ const Vote = () => {
           </div>
         ) : (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
-              {filterParty === "all"
-                ? "No candidates available for this election."
-                : "No candidates found for the selected party."}
-            </p>
+            <p className="text-gray-500 text-lg">{filterParty === "all" ? "No candidates available for this election." : "No candidates found for the selected party."}</p>
           </div>
         )}
 
         {/* Vote Button */}
         {filteredCandidates.length > 0 && (
           <div className="text-center">
-            <button
-              onClick={handleVote}
-              disabled={!selectedId || submitting || !electionStatus?.isActive}
-              className={`px-8 py-3 rounded-md font-semibold transition ${
-                selectedId && !submitting && electionStatus?.isActive
-                  ? "bg-[#21978B] text-white hover:bg-[#19796e]"
-                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
-              }`}
-            >
+            <button onClick={handleVote} disabled={!selectedId || submitting || !electionStatus?.isActive} className={`px-8 py-3 rounded-md font-semibold transition ${selectedId && !submitting && electionStatus?.isActive ? "bg-[#21978B] text-white hover:bg-[#19796e]" : "bg-gray-300 text-gray-500 cursor-not-allowed"}`}>
               {submitting ? "Submitting Vote..." : "Submit Vote"}
             </button>
 
@@ -318,3 +359,97 @@ const Vote = () => {
 }
 
 export default Vote
+
+// ================= Helper functions for blinding & signing ==================
+// Place these below the component or in a separate util file (they're included here for copy/paste convenience).
+
+async function sha256Bytes(str) {
+  const enc = new TextEncoder()
+  const data = enc.encode(str)
+  const hashBuf = await crypto.subtle.digest("SHA-256", data)
+  return new Uint8Array(hashBuf)
+}
+
+function hexToBigInt(hex) {
+  return BigInt("0x" + hex)
+}
+function bigIntToHex(b) {
+  let h = b.toString(16)
+  if (h.length % 2) h = "0" + h
+  return h
+}
+
+function modPow(base, exp, mod) {
+  let result = 1n
+  base = base % mod
+  while (exp > 0n) {
+    if (exp & 1n) result = (result * base) % mod
+    exp = exp >> 1n
+    base = (base * base) % mod
+  }
+  return result
+}
+
+function gcdBigInt(a, b) {
+  while (b) {
+    const t = b
+    b = a % b
+    a = t
+  }
+  return a
+}
+function modInverseBigInt(a, m) {
+  // extended Euclid
+  let m0 = m
+  let x0 = 0n,
+    x1 = 1n
+  if (m == 1n) return 0n
+  while (a > 1n) {
+    let q = a / m
+    let t = m
+    m = a % m
+    a = t
+    t = x0
+    x0 = x1 - q * x0
+    x1 = t
+  }
+  if (x1 < 0n) x1 += m0
+  return x1
+}
+
+async function blindMessage(ballot, nHex, eDec) {
+  const n = hexToBigInt(nHex)
+  const e = BigInt(eDec)
+
+  // message representative = SHA256(ballot) as big-int
+  const hBytes = await sha256Bytes(ballot)
+  let m = 0n
+  for (const b of hBytes) {
+    m = (m << 8n) + BigInt(b)
+  }
+
+  // pick random r in (1, n-1) with gcd(r,n)=1
+  let r
+  do {
+    // random bytes of same length as n
+    const nLen = Math.ceil(n.toString(16).length / 2)
+    const randBytes = new Uint8Array(nLen)
+    crypto.getRandomValues(randBytes)
+    r = 0n
+    for (const b of randBytes) r = (r << 8n) + BigInt(b)
+    r = r % n
+  } while (r <= 1n || r >= n - 1n || gcdBigInt(r, n) !== 1n)
+
+  const rPowE = modPow(r, e, n)
+  const blinded = (m * rPowE) % n
+
+  return { blindedHex: bigIntToHex(blinded), r, m }
+}
+
+function unblindSignature(signedBlindedHex, r, nHex) {
+  const sPrime = hexToBigInt(signedBlindedHex)
+  const n = hexToBigInt(nHex)
+  const rInv = modInverseBigInt(r, n)
+  const s = (sPrime * rInv) % n
+  return bigIntToHex(s)
+}

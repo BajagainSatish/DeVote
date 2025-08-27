@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
+	"math/big"
 	"net/http"
 	"time"
 
@@ -73,9 +74,9 @@ func getVoterDetailsFromRegistered(voterID string) (string, string, error) {
 	return "", "", errors.New("voter not registered")
 }
 
-// HandleVote receives a POST request to cast a vote.
+// HandleVote receives a POST request to cast a vote anonymously.
 func HandleVote(w http.ResponseWriter, r *http.Request) {
-	log.Println("HandleVote called")
+	log.Println("HandleVote called (anonymous mode)")
 	w.Header().Set("Content-Type", "application/json")
 
 	type VoteRequest struct {
@@ -93,10 +94,10 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Received vote request: VoterID=%s, CandidateID=%s, Name=%s, DOB=%s",
-		req.VoterID, req.CandidateID, req.Name, req.DOB)
+	//log.Printf("Received vote request: VoterID=%s, CandidateID=%s, Name=%s, DOB=%s", req.VoterID, req.CandidateID, req.Name, req.DOB)
+	log.Printf("Received vote request (anonymized flow): VoterID=%s, CandidateID=%s", req.VoterID, req.CandidateID)
 
-	// Check if election is active
+	// Is Election active?
 	if !election.IsElectionActive() {
 		log.Println("Election is not active")
 		w.WriteHeader(http.StatusBadRequest)
@@ -104,7 +105,7 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If name and DOB are empty, try to get them from registered users
+	// If name/DOB not provided, load from registered voters
 	if req.Name == "" || req.DOB == "" {
 		log.Println("Name or DOB empty, fetching from registered users...")
 		name, dob, err := getVoterDetailsFromRegistered(req.VoterID)
@@ -119,7 +120,7 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Retrieved voter details: Name=%s, DOB=%s", req.Name, req.DOB)
 	}
 
-	// Load valid voter database for government validation
+	// Validate voter against government database
 	db, err := contracts.LoadVoterDatabase()
 	if err != nil {
 		log.Printf("Failed to load voter registry: %v", err)
@@ -129,16 +130,16 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Validate voter against government database
-	log.Printf("Validating voter: ID=%s, Name=%s, DOB=%s", req.VoterID, req.Name, req.DOB)
+	// log.Printf("Validating voter: ID=%s, Name=%s, DOB=%s", req.VoterID, req.Name, req.DOB)
 	if !db.IsValid(req.VoterID, req.Name, req.DOB) {
-		log.Printf("Invalid voter details for: ID=%s, Name=%s, DOB=%s", req.VoterID, req.Name, req.DOB)
+		log.Printf("Invalid voter details for: ID=%s", req.VoterID)
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid voter details in government database"})
 		return
 	}
 	log.Println("Voter validation successful")
 
-	// Validate that the candidate exists
+	// Validate candidate's existence
 	_, err = election.GetCandidate(req.CandidateID)
 	if err != nil {
 		log.Printf("Invalid candidate ID: %s", req.CandidateID)
@@ -147,19 +148,27 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if already voted and cast vote
+	// Check if already voted and cast the vote
 	log.Printf("Checking if voter %s has already voted", req.VoterID)
-	err = election.Vote(req.VoterID, req.CandidateID)
+	err = election.Vote(req.VoterID, req.CandidateID) // This prevents double-voting
 	if err != nil {
 		log.Printf("Failed to vote: %v", err)
 		w.WriteHeader(http.StatusBadRequest)
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
-	log.Println("Vote recorded successfully")
+	log.Println("Vote recorded successfully (off-chain)")
 
+	// For non-anonymous implementation
 	// Create a transaction and add it to the blockchain
-	tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
+	// tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
+
+	// ⬇Anonymous blockchain transaction (no voter info stored)
+	tx := blockchain.NewTransaction(
+		"",              // no VoterID
+		req.CandidateID, // only candidate is recorded
+		"ANON_VOTE",
+	)
 	chain.AddBlock([]blockchain.Transaction{tx})
 
 	// Save updated election state
@@ -172,11 +181,14 @@ func HandleVote(w http.ResponseWriter, r *http.Request) {
 
 	// Respond with success
 	w.WriteHeader(http.StatusCreated)
-	response := map[string]string{"status": "vote accepted", "message": "Your vote has been recorded successfully"}
+	response := map[string]string{
+		"status":  "vote accepted",
+		"message": "Your anonymous vote has been recorded successfully",
+	}
 	if err := json.NewEncoder(w).Encode(response); err != nil {
 		log.Printf("Failed to encode response: %v", err)
 	}
-	log.Println("HandleVote completed successfully")
+	log.Println("HandleVote (anonymous) completed successfully")
 }
 
 // HandleTally handles GET requests to view current vote counts.
@@ -303,6 +315,9 @@ func HandleAddCandidate(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Candidate added successfully, now saving...")
 
+	tx := blockchain.NewTransaction("admin", req.ID, "ADD_CANDIDATE")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -355,6 +370,9 @@ func HandleUpdateCandidate(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	tx := blockchain.NewTransaction("admin", id, "UPDATE_CANDIDATE")
+	chain.AddBlock([]blockchain.Transaction{tx})
 
 	log.Println("Candidate updated successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
@@ -474,6 +492,9 @@ func HandleAddParty(w http.ResponseWriter, r *http.Request) {
 	}
 	log.Println("Party added successfully, now saving...")
 
+	tx := blockchain.NewTransaction("admin", req.ID, "ADD_PARTY")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -524,6 +545,9 @@ func HandleUpdateParty(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx := blockchain.NewTransaction("admin", id, "UPDATE_PARTY")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	log.Println("Party updated successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -548,6 +572,9 @@ func HandleDeleteParty(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	tx := blockchain.NewTransaction("admin", id, "DELETE_PARTY")
+	chain.AddBlock([]blockchain.Transaction{tx})
 
 	log.Println("Party deleted successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
@@ -592,6 +619,9 @@ func HandleStartElection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx := blockchain.NewTransaction("admin", "election", "START_ELECTION")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	log.Println("Election started successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -615,6 +645,9 @@ func HandleStopElection(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
 		return
 	}
+
+	tx := blockchain.NewTransaction("admin", "election", "STOP_ELECTION")
+	chain.AddBlock([]blockchain.Transaction{tx})
 
 	log.Println("Election stopped successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
@@ -880,6 +913,9 @@ func HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	tx := blockchain.NewTransaction("admin", id, "DELETE_USER")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
 	log.Println("User deleted successfully, now saving...")
 	if saveErr := election.SaveElection(); saveErr != nil {
 		log.Printf("Failed to save election: %v", saveErr)
@@ -1009,19 +1045,117 @@ func getBlockchainHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Content-Type", "application/json")
 
-	blocks, err := blockchain.LoadBlocks() // no args
+	blocks, err := blockchain.LoadBlocks()
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to load blockchain"})
 		return
 	}
 
-	// Ensure slices are non-nil for all blocks
+	// Ensure Transactions slice is non-nil for JSON serialization
 	for i := range blocks {
 		if blocks[i].Transactions == nil {
-			blocks[i].Transactions = make([]blockchain.Transaction, 0)
+			blocks[i].Transactions = []blockchain.Transaction{}
 		}
 	}
 
 	json.NewEncoder(w).Encode(blocks)
+}
+
+// POST /issue-blind-signature
+// Body: { "blinded": "<hex>" }  (Authenticated / session required)
+func IssueBlindSignatureHandler(w http.ResponseWriter, r *http.Request) {
+	// ensure user authenticated & eligible (implement your auth)
+	// parse body
+	var body struct {
+		Blinded string `json:"blinded"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+
+	// Optionally: verify this user hasn't already been issued a blind-signature token.
+	// (must implement per our eligibility logic: e.g. mark "issued" in DB when you sign.)
+	signedHex, err := IssueBlindSignatureForBlindedHexHex(body.Blinded)
+	if err != nil {
+		http.Error(w, "signing failed: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"blinded_signature": signedHex})
+}
+
+// GET /pubkey
+func HandleGetPubKey(w http.ResponseWriter, r *http.Request) {
+	nHex, eHex := blockchain.ExportAuthorityPublicKey()
+	if nHex == "" || eHex == "" {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Authority keys not initialized"})
+		return
+	}
+	json.NewEncoder(w).Encode(map[string]string{"n": nHex, "e": eHex})
+}
+
+// POST /issue-blind-signature
+func HandleIssueBlindSignature(w http.ResponseWriter, r *http.Request) {
+	type Req struct {
+		VoterID     string `json:"voterID"`
+		BlindedVote string `json:"blindedVote"` // hex-encoded big.Int
+	}
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON"})
+		return
+	}
+
+	// Verify JWT (Authorization header) to ensure voter is authenticated
+	// Use your existing token middleware or parse header manually
+
+	// Convert blindedVote from hex string to big.Int
+	blindedInt := new(big.Int)
+	blindedInt.SetString(req.BlindedVote, 16)
+
+	signedBlind, err := blockchain.BlindSign(blindedInt)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to sign blinded vote"})
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"signedBlind": signedBlind.Text(16)})
+}
+
+// POST /submit-anonymous-vote
+func HandleSubmitAnonymousVote(w http.ResponseWriter, r *http.Request) {
+	type Req struct {
+		CandidateID string `json:"candidateID"`
+		SignedVote  string `json:"signedVote"` // hex-encoded
+	}
+	var req Req
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON"})
+		return
+	}
+
+	// Convert signed vote to big.Int
+	sigInt := new(big.Int)
+	sigInt.SetString(req.SignedVote, 16)
+
+	// Verify signature against candidateID (vote message)
+	if !blockchain.VerifySignature([]byte(req.CandidateID), sigInt.Bytes()) {
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid vote signature"})
+		return
+	}
+
+	// Cast anonymous vote to blockchain (VoterID empty)
+	tx := blockchain.NewTransaction("", req.CandidateID, "ANON_VOTE")
+	chain.AddBlock([]blockchain.Transaction{tx})
+
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"status": "vote accepted"})
 }
