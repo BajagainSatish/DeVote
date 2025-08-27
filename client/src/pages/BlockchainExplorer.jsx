@@ -51,11 +51,8 @@ const BlockchainExplorer = () => {
 
   const toggleBlockExpansion = (blockId) => {
     const newExpanded = new Set(expandedBlocks)
-    if (newExpanded.has(blockId)) {
-      newExpanded.delete(blockId)
-    } else {
-      newExpanded.add(blockId)
-    }
+    if (newExpanded.has(blockId)) newExpanded.delete(blockId)
+    else newExpanded.add(blockId)
     setExpandedBlocks(newExpanded)
   }
 
@@ -129,13 +126,10 @@ const BlockchainExplorer = () => {
     switch (type) {
       case "ADD_CANDIDATE":
       case "UPDATE_CANDIDATE": {
-        if (payload.includes(":")) {
+        if (typeof payload === "string" && payload.includes(":")) {
           const parts = payload.split(":")
           if (parts.length >= 3) {
-            return {
-              name: parts[1],
-              bio: parts.slice(2).join(":"),
-            }
+            return { name: parts[1], bio: parts.slice(2).join(":") }
           }
         }
         return { action: payload }
@@ -155,6 +149,7 @@ const BlockchainExplorer = () => {
   }
 
   const getTransactionType = (transaction) => {
+    if (!transaction) return "UNKNOWN"
     if (transaction.Type) return transaction.Type
     if (transaction.type) return transaction.type
 
@@ -243,7 +238,7 @@ const BlockchainExplorer = () => {
             (tx.ID && tx.ID.toLowerCase().includes(searchLower)) ||
             (tx.Sender && tx.Sender.toLowerCase().includes(searchLower)) ||
             (tx.Receiver && tx.Receiver.toLowerCase().includes(searchLower)) ||
-            (tx.Payload && tx.Payload.toLowerCase().includes(searchLower)),
+            (tx.Payload && String(tx.Payload).toLowerCase().includes(searchLower)),
         ))
     )
   })
@@ -401,10 +396,8 @@ const BlockchainExplorer = () => {
     if (verifyingBlocks.has(blockKey)) {
       return <AlertCircle className="w-4 h-4 text-yellow-500 animate-spin" />
     }
-
     const result = verificationResults.get(blockKey)
     if (!result) return null
-
     return result.isValid || result.isGenesis ? (
       <CheckCircle className="w-4 h-4 text-green-500" />
     ) : (
@@ -574,6 +567,7 @@ const BlockchainExplorer = () => {
               searchFilteredBlocks.reverse().map((block, index) => {
                 const blockId = `${block.Hash}-${block.Index}-${index}`
                 const blockKey = `${block.Hash}-${block.Index}`
+
                 return (
                   <div key={blockId} className="bg-white rounded-lg shadow-sm border border-gray-200">
                     {/* Block Header */}
@@ -597,7 +591,9 @@ const BlockchainExplorer = () => {
                           <h3 className="text-lg font-semibold text-gray-900">Block #{block.Index}</h3>
                           <p className="text-sm text-gray-500">
                             {formatTimestamp(block.Timestamp)} •{" "}
-                            {block.Transactions && Array.isArray(block.Transactions) ? block.Transactions.length : 0}{" "}
+                            {block.Transactions && Array.isArray(block.Transactions)
+                              ? block.Transactions.length
+                              : 0}{" "}
                             transactions
                           </p>
                         </div>
@@ -668,20 +664,6 @@ const BlockchainExplorer = () => {
                                         {verificationResults.get(blockKey).message}
                                       </div>
                                     )}
-                                    {!verificationResults.get(blockKey).isValid &&
-                                      verificationResults.get(blockKey).transactions &&
-                                      verificationResults.get(blockKey).transactions.length > 0 && (
-                                        <div className="mt-3">
-                                          <HashComparison
-                                            transaction={verificationResults.get(blockKey).transactions[0]}
-                                            expectedHash={verificationResults.get(blockKey).storedRoot}
-                                          />
-                                          <GoJsonMatcher
-                                            transaction={verificationResults.get(blockKey).transactions[0]}
-                                            expectedHash={verificationResults.get(blockKey).storedRoot}
-                                          />
-                                        </div>
-                                      )}
                                   </div>
                                 )}
                               </div>
@@ -700,6 +682,7 @@ const BlockchainExplorer = () => {
                                 const txType = getTransactionType(tx)
                                 const parsedPayload = parseTransactionPayload(tx.Payload, txType)
                                 const labels = getTransactionLabels(txType)
+
                                 return (
                                   <div
                                     key={`${tx.ID}-${txIndex}`}
@@ -710,7 +693,9 @@ const BlockchainExplorer = () => {
                                       <div className="flex items-center space-x-3">
                                         {getTransactionIcon(txType)}
                                         <span
-                                          className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeColor(txType)}`}
+                                          className={`px-2 py-1 rounded-full text-xs font-medium ${getTransactionTypeColor(
+                                            txType,
+                                          )}`}
                                         >
                                           {txType}
                                         </span>
@@ -727,20 +712,22 @@ const BlockchainExplorer = () => {
                                       </button>
                                     </div>
 
+                                    {/* Dynamic From / To Fields */}
                                     <div className="flex items-center justify-between text-sm">
                                       <div>
                                         <span className="text-gray-600">{labels.from}:</span>
-                                        <span className="ml-2 font-mono text-gray-800">{tx.Sender}</span>
+                                        <span className="ml-2 font-mono text-gray-800">{tx.Sender || "—"}</span>
                                       </div>
                                       <div>
                                         <span className="text-gray-600">{labels.to}:</span>
-                                        <span className="ml-2 font-mono text-sm">{tx.Receiver}</span>
+                                        <span className="ml-2 font-mono text-sm">{tx.Receiver || "—"}</span>
                                       </div>
                                     </div>
 
+                                    {/* Special Fields */}
                                     {txType === "ADD_CANDIDATE" && (
                                       <div className="mt-2 text-sm">
-                                        <span className="text-gray-600">Candidate:</span>
+                                        <span className="text-gray-600">Candidate Action:</span>
                                         <span className="ml-2 font-semibold">
                                           {parsedPayload.name || parsedPayload.action}
                                         </span>
@@ -753,7 +740,7 @@ const BlockchainExplorer = () => {
                                         <span className="text-gray-600">Party Action:</span>
                                         <span className="ml-2 font-semibold">{parsedPayload.action}</span>
                                         <span className="text-gray-600 ml-4">Target:</span>
-                                        <span className="ml-2 font-mono text-sm">{tx.Receiver}</span>
+                                        <span className="ml-2 font-mono text-sm">{tx.Receiver || "—"}</span>
                                       </div>
                                     )}
                                     {(txType === "START_ELECTION" || txType === "STOP_ELECTION") && (
@@ -782,6 +769,8 @@ const BlockchainExplorer = () => {
           </div>
         </div>
       </div>
+
+      {/* Transaction Details Modal */}
       {selectedTransaction && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -806,40 +795,49 @@ const BlockchainExplorer = () => {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700">
-                      {getTransactionLabels(getTransactionType(selectedTransaction)).from}
-                    </label>
-                    <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
-                      {selectedTransaction.Sender}
-                    </p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-semibold text-gray-700">
-                      {getTransactionLabels(getTransactionType(selectedTransaction)).to}
-                    </label>
-                    <p className="font-mono text-sm text-gray-600 bg-gray-100 p-2 rounded">
-                      {selectedTransaction.Receiver}
-                    </p>
-                  </div>
-                </div>
+                {(() => {
+                  const tx = selectedTransaction
+                  const txType = getTransactionType(tx)
+                  const labels = getTransactionLabels(txType)
+                  const parsedPayload = parseTransactionPayload(tx.Payload, txType)
 
-                <div>
-                  <label className="text-sm font-semibold text-gray-700">Type</label>
-                  <div className="mt-1">
-                    <span
-                      className={`px-3 py-1 rounded-full text-sm font-medium ${getTransactionTypeColor(getTransactionType(selectedTransaction))}`}
-                    >
-                      {getTransactionType(selectedTransaction)}
-                    </span>
-                  </div>
-                </div>
+                  return (
+                    <>
+                      <div>
+                        <span className="text-xs text-gray-500">{labels.from}:</span>
+                        <p className="font-mono text-xs">{tx.Sender || "—"}</p>
+                      </div>
+                      <div>
+                        <span className="text-xs text-gray-500">{labels.to}:</span>
+                        <p className="font-mono text-xs">{tx.Receiver || "—"}</p>
+                      </div>
+
+                      {txType === "ADD_CANDIDATE" && (
+                        <div>
+                          <span className="text-xs text-gray-500">Candidate Action:</span>
+                          <p className="font-mono text-xs">{parsedPayload.name || parsedPayload.action}</p>
+                        </div>
+                      )}
+                      {(txType === "ADD_PARTY" || txType === "UPDATE_PARTY" || txType === "DELETE_PARTY") && (
+                        <div>
+                          <span className="text-xs text-gray-500">Party Action:</span>
+                          <p className="font-mono text-xs">{parsedPayload.action}</p>
+                        </div>
+                      )}
+                      {(txType === "START_ELECTION" || txType === "STOP_ELECTION") && (
+                        <div>
+                          <span className="text-xs text-gray-500">Election Action:</span>
+                          <p className="font-mono text-xs">{parsedPayload.action}</p>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
 
                 <div>
                   <label className="text-sm font-semibold text-gray-700">Payload</label>
                   <p className="text-sm text-gray-600 bg-gray-100 p-3 rounded break-all">
-                    {selectedTransaction.Payload}
+                    {String(selectedTransaction.Payload)}
                   </p>
                 </div>
               </div>
@@ -847,6 +845,8 @@ const BlockchainExplorer = () => {
           </div>
         </div>
       )}
+
+      {/* Transaction Merkle Proof Modal */}
       {selectedTransactionProof && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -896,14 +896,45 @@ const BlockchainExplorer = () => {
                       <span className="text-xs text-gray-500">Transaction ID:</span>
                       <p className="font-mono text-xs break-all">{selectedTransactionProof.transaction.ID}</p>
                     </div>
-                    <div>
-                      <span className="text-xs text-gray-500">From:</span>
-                      <p className="font-mono text-xs">{selectedTransactionProof.transaction.Sender}</p>
-                    </div>
-                    <div>
-                      <span className="text-xs text-gray-500">To:</span>
-                      <p className="font-mono text-xs">{selectedTransactionProof.transaction.Receiver}</p>
-                    </div>
+
+                    {(() => {
+                      const tx = selectedTransactionProof.transaction
+                      const txType = getTransactionType(tx)
+                      const labels = getTransactionLabels(txType)
+                      const parsedPayload = parseTransactionPayload(tx.Payload, txType)
+
+                      return (
+                        <>
+                          <div>
+                            <span className="text-xs text-gray-500">{labels.from}:</span>
+                            <p className="font-mono text-xs">{tx.Sender || "—"}</p>
+                          </div>
+                          <div>
+                            <span className="text-xs text-gray-500">{labels.to}:</span>
+                            <p className="font-mono text-xs">{tx.Receiver || "—"}</p>
+                          </div>
+
+                          {txType === "ADD_CANDIDATE" && (
+                            <div>
+                              <span className="text-xs text-gray-500">Candidate Action:</span>
+                              <p className="font-mono text-xs">{parsedPayload.name || parsedPayload.action}</p>
+                            </div>
+                          )}
+                          {(txType === "ADD_PARTY" || txType === "UPDATE_PARTY" || txType === "DELETE_PARTY") && (
+                            <div>
+                              <span className="text-xs text-gray-500">Party Action:</span>
+                              <p className="font-mono text-xs">{parsedPayload.action}</p>
+                            </div>
+                          )}
+                          {(txType === "START_ELECTION" || txType === "STOP_ELECTION") && (
+                            <div>
+                              <span className="text-xs text-gray-500">Election Action:</span>
+                              <p className="font-mono text-xs">{parsedPayload.action}</p>
+                            </div>
+                          )}
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
 
@@ -975,6 +1006,7 @@ const BlockchainExplorer = () => {
           </div>
         </div>
       )}
+
       <Footer />
     </>
   )
