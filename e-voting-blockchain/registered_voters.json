@@ -10,5 +10,23 @@
     "password": "7PyoByMp",
     "voterId": "v2",
     "email": "shyam@noob.com"
+  },
+  {
+    "username": "voter_v3",
+    "password": "t0j6qj6l",
+    "voterId": "v3",
+    "email": "three@hero.com"
+  },
+  {
+    "username": "voter_v4",
+    "password": "msFxlKwO",
+    "voterId": "v4",
+    "email": "griffin@gmail.com"
+  },
+  {
+    "username": "voter_v5",
+    "password": "jaasIq73",
+    "voterId": "v5",
+    "email": "alice@gmail.com"
   }
 ]

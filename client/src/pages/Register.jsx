@@ -34,16 +34,32 @@ const Register = () => {
         body: JSON.stringify({ email, voterId, name, dob, location }),
       });
 
+      // if (!res.ok) {
+      //   const errText = await res.text();
+      //   throw new Error(errText || "Registration failed");
+      // }
+
+      // const data = await res.json();
+      // alert(
+      //   `Registration successful!\nYour username: ${data.username}\nYour password: ${data.password}`
+      // );
+      // navigate("/login");
+
       if (!res.ok) {
         const errText = await res.text();
-        throw new Error(errText || "Registration failed");
+        navigate("/registration-result", {
+          state: { success: false, message: errText },
+        });
+      } else {
+        const data = await res.json();
+        navigate("/registration-result", {
+          state: {
+            success: true,
+            username: data.username,
+            password: data.password,
+          },
+        });
       }
-
-      const data = await res.json();
-      alert(
-        `Registration successful!\nYour username: ${data.username}\nYour password: ${data.password}`
-      );
-      navigate("/login");
     } catch (err) {
       alert("Error: " + err.message);
     }
@@ -71,7 +87,10 @@ const Register = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label htmlFor="voterId" className="block mb-1 text-sm font-semibold text-gray-800">
+              <label
+                htmlFor="voterId"
+                className="block mb-1 text-sm font-semibold text-gray-800"
+              >
                 Voter ID
               </label>
               <input
@@ -87,7 +106,10 @@ const Register = () => {
             </div>
 
             <div>
-              <label htmlFor="name" className="block mb-1 text-sm font-semibold text-gray-800">
+              <label
+                htmlFor="name"
+                className="block mb-1 text-sm font-semibold text-gray-800"
+              >
                 Full Name
               </label>
               <input
@@ -103,11 +125,14 @@ const Register = () => {
             </div>
 
             <div>
-              <label htmlFor="dob" className="block mb-1 text-sm font-semibold text-gray-800">
+              <label
+                htmlFor="dob"
+                className="block mb-1 text-sm font-semibold text-gray-800"
+              >
                 Date of Birth
               </label>
               <input
-                type="date"//provides value in yyyy-mm-dd format which is used by voters.json eg: "DOB": "1990-01-01",
+                type="date" //provides value in yyyy-mm-dd format which is used by voters.json eg: "DOB": "1990-01-01",
                 id="dob"
                 name="dob"
                 value={formData.dob}
@@ -118,7 +143,10 @@ const Register = () => {
             </div>
 
             <div>
-              <label htmlFor="location" className="block mb-1 text-sm font-semibold text-gray-800">
+              <label
+                htmlFor="location"
+                className="block mb-1 text-sm font-semibold text-gray-800"
+              >
                 Location
               </label>
               <input
@@ -134,7 +162,10 @@ const Register = () => {
             </div>
 
             <div>
-              <label htmlFor="email" className="block mb-1 text-sm font-semibold text-gray-800">
+              <label
+                htmlFor="email"
+                className="block mb-1 text-sm font-semibold text-gray-800"
+              >
                 Email
               </label>
               <input

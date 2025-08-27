@@ -1,20 +1,20 @@
 //Navbar.jsx
 
-"use client"
-import React from "react"
+"use client";
+import React from "react";
 
-import { Link, useNavigate } from "react-router-dom"
-import { UseAuth } from "../context/AuthContext"
+import { Link, useNavigate } from "react-router-dom";
+import { UseAuth } from "../context/AuthContext";
 
 const Navbar = () => {
-  const { username, logout } = UseAuth()
-  const navigate = useNavigate()
+  const { username, logout } = UseAuth();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("token")
-    logout()
-    navigate("/")
-  }
+    localStorage.removeItem("token");
+    logout();
+    navigate("/");
+  };
 
   return (
     <nav className="flex items-center justify-between px-12 py-4 border-b border-white bg-white shadow-md">
@@ -26,22 +26,34 @@ const Navbar = () => {
         // Logged in user navigation
         <ul className="flex gap-10 text-gray-700 font-medium">
           <li>
-            <Link to="/dashboard" className="hover:text-gray-900 cursor-pointer">
+            <Link
+              to="/dashboard"
+              className="text-gray-500 hover:text-emerald-600 transition-colors"
+            >
               Dashboard
             </Link>
           </li>
           <li>
-            <Link to="/vote" className="hover:text-gray-900 cursor-pointer">
+            <Link
+              to="/vote"
+              className="text-gray-500 hover:text-emerald-600 transition-colors"
+            >
               Vote
             </Link>
           </li>
           <li>
-            <Link to="/results" className="hover:text-gray-900 cursor-pointer">
+            <Link
+              to="/results"
+              className="text-gray-500 hover:text-emerald-600 transition-colors"
+            >
               Results
             </Link>
           </li>
           <li>
-            <Link to="/blockchain" className="hover:text-gray-900 cursor-pointer">
+            <Link
+              to="/blockchain"
+              className="text-gray-500 hover:text-emerald-600 transition-colors"
+            >
               Blockchain Explorer
             </Link>
           </li>
@@ -49,17 +61,27 @@ const Navbar = () => {
       ) : (
         // Guest navigation
         <ul className="flex gap-10 text-gray-700 font-medium">
-          <li className="hover:text-gray-900 cursor-pointer">Home</li>
-          <li className="hover:text-gray-900 cursor-pointer">Features</li>
-          <li className="hover:text-gray-900 cursor-pointer">How it Works</li>
-          <li className="hover:text-gray-900 cursor-pointer">Contact</li>
+          <li className="text-gray-500 hover:text-emerald-600 transition-colors">
+            Home
+          </li>
+          <li className="text-gray-500 hover:text-emerald-600 transition-colors">
+            Features
+          </li>
+          <li className="text-gray-500 hover:text-emerald-600 transition-colors">
+            How it Works
+          </li>
+          <li className="text-gray-500 hover:text-emerald-600 transition-colors">
+            Contact
+          </li>
         </ul>
       )}
 
       <div className="flex gap-4 items-center">
         {username ? (
           <>
-            <span className="text-gray-700 font-medium">Welcome, {username}</span>
+            <span className="text-gray-700 font-medium">
+              Welcome, {username}
+            </span>
             <button
               onClick={handleLogout}
               className="bg-red-500 text-white px-5 py-2 rounded-md font-semibold hover:bg-red-600 transition"
@@ -85,7 +107,7 @@ const Navbar = () => {
         )}
       </div>
     </nav>
-  )
-}
+  );
+};
 
-export default Navbar
+export default Navbar;
