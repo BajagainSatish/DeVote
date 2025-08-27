@@ -18,11 +18,10 @@
       "partyName": "Nepali Congress",
       "age": 74,
       "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiSnsRpnUkXRwKeDmTg71lQbuJ2kxcAdBl4KIEekjHHem72i2G2cfwweC2JevQGtuiEzU_S3Kd_AaeCKXq8Mrq3zKLFM0epFrEGZkh1tkMqsdiZ4McHVmR3xk7DXfr9CoiLMxxoC5fMqeS2qA69Ack2AS9T2xa9JCqPQzzKTAO0oRmItQHCBtQ/s600/deubaaaaaaa.jpg",
-      "votes": 1
+      "votes": 0
     }
   },
   "voters": {
-    "v1": true,
     "v2": true
   },
   "users": {},
@@ -42,8 +41,8 @@
   },
   "status": {
     "isActive": true,
-    "startTime": "2025-08-27T18:10:40.998178+05:45",
-    "endTime": "2025-08-27T19:10:40.998178+05:45",
-    "description": "test2"
+    "startTime": "2025-08-27T21:53:35.5725843+05:45",
+    "endTime": "2025-08-28T07:53:35.5725843+05:45",
+    "description": "zero knowledge"
   }
 }

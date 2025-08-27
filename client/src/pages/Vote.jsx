@@ -7,6 +7,7 @@ import { UseAuth } from "../context/AuthContext"
 import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
 import VotingApiService from "../services/api" // keep using for fallback/other APIs
+import { blindMessage, unblindSignature } from "../utils/zkUtils"
 
 const Vote = () => {
   const { username } = UseAuth()
@@ -466,97 +467,3 @@ const Vote = () => {
 }
 
 export default Vote
-
-// ================= Helper functions for blinding & signing ==================
-// Place these below the component or in a separate util file (they're included here for copy/paste convenience).
-
-async function sha256Bytes(str) {
-  const enc = new TextEncoder()
-  const data = enc.encode(str)
-  const hashBuf = await crypto.subtle.digest("SHA-256", data)
-  return new Uint8Array(hashBuf)
-}
-
-function hexToBigInt(hex) {
-  return BigInt("0x" + hex)
-}
-function bigIntToHex(b) {
-  let h = b.toString(16)
-  if (h.length % 2) h = "0" + h
-  return h
-}
-
-function modPow(base, exp, mod) {
-  let result = 1n
-  base = base % mod
-  while (exp > 0n) {
-    if (exp & 1n) result = (result * base) % mod
-    exp = exp >> 1n
-    base = (base * base) % mod
-  }
-  return result
-}
-
-function gcdBigInt(a, b) {
-  while (b) {
-    const t = b
-    b = a % b
-    a = t
-  }
-  return a
-}
-function modInverseBigInt(a, m) {
-  // extended Euclid
-  let m0 = m
-  let x0 = 0n,
-    x1 = 1n
-  if (m == 1n) return 0n
-  while (a > 1n) {
-    let q = a / m
-    let t = m
-    m = a % m
-    a = t
-    t = x0
-    x0 = x1 - q * x0
-    x1 = t
-  }
-  if (x1 < 0n) x1 += m0
-  return x1
-}
-
-async function blindMessage(ballot, nHex, eDec) {
-  const n = hexToBigInt(nHex)
-  const e = BigInt(eDec)
-
-  // message representative = SHA256(ballot) as big-int
-  const hBytes = await sha256Bytes(ballot)
-  let m = 0n
-  for (const b of hBytes) {
-    m = (m << 8n) + BigInt(b)
-  }
-
-  // pick random r in (1, n-1) with gcd(r,n)=1
-  let r
-  do {
-    // random bytes of same length as n
-    const nLen = Math.ceil(n.toString(16).length / 2)
-    const randBytes = new Uint8Array(nLen)
-    crypto.getRandomValues(randBytes)
-    r = 0n
-    for (const b of randBytes) r = (r << 8n) + BigInt(b)
-    r = r % n
-  } while (r <= 1n || r >= n - 1n || gcdBigInt(r, n) !== 1n)
-
-  const rPowE = modPow(r, e, n)
-  const blinded = (m * rPowE) % n
-
-  return { blindedHex: bigIntToHex(blinded), r, m }
-}
-
-function unblindSignature(signedBlindedHex, r, nHex) {
-  const sPrime = hexToBigInt(signedBlindedHex)
-  const n = hexToBigInt(nHex)
-  const rInv = modInverseBigInt(r, n)
-  const s = (sPrime * rInv) % n
-  return bigIntToHex(s)
-}
