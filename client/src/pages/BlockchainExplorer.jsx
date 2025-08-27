@@ -21,6 +21,7 @@ import Footer from "../components/Footer.jsx"
 import { MerkleTree } from "../utils/merkle.js"
 import HashComparison from "../components/HashComparison.jsx"
 import GoJsComparison from "../components/GoJsComparison.jsx"
+import GoJsonMatcher from "../components/GoJsonMatcher.jsx"
 
 const BlockchainExplorer = () => {
   const [blocks, setBlocks] = useState([])
@@ -639,6 +640,10 @@ const BlockchainExplorer = () => {
                                             transaction={verificationResults.get(blockKey).transactions[0]}
                                             expectedHash={verificationResults.get(blockKey).storedRoot}
                                           />
+                                          <GoJsonMatcher
+                                            transaction={verificationResults.get(blockKey).transactions[0]}
+                                            expectedHash={verificationResults.get(blockKey).storedRoot}
+                                          />
                                         </div>
                                       )}
                                   </div>
@@ -692,7 +697,7 @@ const BlockchainExplorer = () => {
                                       </div>
                                       <div>
                                         <span className="text-gray-600">To:</span>
-                                        <span className="ml-2 font-mono text-gray-800">{tx.Receiver}</span>
+                                        <span className="ml-2 font-mono text-sm">{tx.Receiver}</span>
                                       </div>
                                     </div>
 

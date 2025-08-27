@@ -16,8 +16,8 @@ type Block struct {
 	Transactions []Transaction `json:"Transactions"`         // Slice (list) of transactions contained in this block
 	PrevHash     string        `json:"PrevHash"`             // Hash of the previous block (links the chain)
 	Hash         string        `json:"Hash"`                 // Hash of the current block (used for integrity)
-	Nonce        int           `json:"nonce,omitempty"`      // optional, used in frontend
-	MerkleRoot   string        `json:"merkleRoot,omitempty"` // Merkle root for transaction integrity
+	Nonce        int           `json:"Nonce,omitempty"`      // optional, used in frontend
+	MerkleRoot   string        `json:"MerkleRoot,omitempty"` // Merkle root for transaction integrity
 }
 
 // NewBlock creates a new block with the given transactions and previous hash

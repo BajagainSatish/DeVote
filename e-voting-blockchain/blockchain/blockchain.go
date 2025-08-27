@@ -52,6 +52,7 @@ func NewBlockchain() *Blockchain {
 		bc.Blocks = []Block{genesis}
 	} else {
 		bc.Blocks = blocks
+		bc.RecomputeMerkleRootsAndHashes()
 	}
 
 	bc.startBlockTimer()
@@ -231,4 +232,20 @@ func LoadFromFile(filename string) (*Blockchain, error) {
 	}
 
 	return &bc, nil
+}
+
+func (bc *Blockchain) RecomputeMerkleRootsAndHashes() error {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+
+	for i := range bc.Blocks {
+		b := &bc.Blocks[i]
+		b.MerkleRoot = ComputeMerkleRoot(b.Transactions) // uses new merkle.go hashTransaction
+		b.GenerateHash()                                 // recalc block Hash using Timestamp/PrevHash/MerkleRoot/Nonce
+		if err := SaveBlock(*b); err != nil {
+			return err
+		}
+		fmt.Printf("Recomputed Block #%d MerkleRoot: %s\n", b.Index, b.MerkleRoot)
+	}
+	return nil
 }

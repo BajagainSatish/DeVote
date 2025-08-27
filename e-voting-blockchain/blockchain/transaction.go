@@ -15,7 +15,7 @@ type Transaction struct {
 	Sender   string `json:"Sender"`   // Added JSON tag for proper serialization, The voter's ID (usually hashed)
 	Receiver string `json:"Receiver"` // Added JSON tag for proper serialization, The candidate's ID
 	Payload  string `json:"Payload"`  // Added JSON tag for proper serialization, Optional data (in our case, "VOTE")
-	Type     string `json:"type,omitempty"`
+	Type     string `json:"Type,omitempty"`
 }
 
 // NewTransaction creates and returns a new transaction.

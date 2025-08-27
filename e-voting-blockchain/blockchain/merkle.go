@@ -27,7 +27,23 @@ type MerkleProofElement struct {
 
 // hashTransaction serializes and hashes a transaction deterministically
 func hashTransaction(tx Transaction) string {
-	data, _ := json.Marshal(tx) // sorted keys
+	// Build a deterministic JSON representation that matches Transaction struct order:
+	// ID, Sender, Receiver, Payload, Type (Type omitted when empty)
+	txData := struct {
+		ID       string `json:"ID"`
+		Sender   string `json:"Sender"`
+		Receiver string `json:"Receiver"`
+		Payload  string `json:"Payload"`
+		Type     string `json:"Type,omitempty"`
+	}{
+		ID:       tx.ID,
+		Sender:   tx.Sender,
+		Receiver: tx.Receiver,
+		Payload:  tx.Payload,
+		Type:     tx.Type,
+	}
+
+	data, _ := json.Marshal(txData) // deterministic JSON (same field order)
 	hash := sha256.Sum256(data)
 	return hex.EncodeToString(hash[:])
 }

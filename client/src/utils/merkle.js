@@ -132,20 +132,22 @@ export class MerkleTree {
      * @returns {string} - SHA256 hash of the transaction
      */
     static hashTransaction(transaction) {
-        if (!transaction) {
-            return ""
-        }
-
-        // Create a consistent string representation of the transaction
-        const txString = JSON.stringify({
+        if (!transaction) return ""
+        // Build object in exact same order used by Go
+        const txObj = {
             ID: transaction.ID || "",
             Sender: transaction.Sender || "",
             Receiver: transaction.Receiver || "",
             Payload: transaction.Payload || "",
-            Type: transaction.Type || "",
-        })
+        }
+        // Only include Type if present (omitempty behaviour)
+        if (transaction.Type) txObj.Type = transaction.Type
 
-        return this.hash(txString)
+        // JSON.stringify respects insertion order so this matches Go's ordered struct.
+        const json = JSON.stringify(txObj)
+        // If running in Node.js replace with node crypto hash; in browser this function
+        // should ideally not be used for crypto.subtle-enabled envs — prefer hashAsync().
+        return this.hashSyncFallback(json) // implement a real SHA256 here for Node fallback.
     }
 
     /**
@@ -255,22 +257,17 @@ export class MerkleTree {
      * @returns {Promise<string>} - SHA256 hash of the transaction
      */
     static async hashTransactionAsync(transaction) {
-        if (!transaction) {
-            return ""
-        }
-
-        // Match Go's json.Marshal behavior - sorted keys, no spaces
-        const sortedTx = {
+        if (!transaction) return ""
+        const txObj = {
             ID: transaction.ID || "",
-            Payload: transaction.Payload || "",
-            Receiver: transaction.Receiver || "",
             Sender: transaction.Sender || "",
-            Type: transaction.Type || "",
+            Receiver: transaction.Receiver || "",
+            Payload: transaction.Payload || "",
         }
+        if (transaction.Type) txObj.Type = transaction.Type
 
-        // Create JSON string exactly like Go's json.Marshal (no spaces, sorted keys)
-        const data = JSON.stringify(sortedTx)
-        return await this.hashAsync(data)
+        const json = JSON.stringify(txObj)
+        return await this.hashAsync(json) // keep your existing hashAsync implementation
     }
 
     static async hashConcatAsync(left, right) {
