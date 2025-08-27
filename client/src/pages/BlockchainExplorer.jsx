@@ -19,9 +19,6 @@ import VotingApiService from "../services/api.js"
 import Navbar from "../components/Navbar.jsx"
 import Footer from "../components/Footer.jsx"
 import { MerkleTree } from "../utils/merkle.js"
-import HashComparison from "../components/HashComparison.jsx"
-import GoJsComparison from "../components/GoJsComparison.jsx"
-import GoJsonMatcher from "../components/GoJsonMatcher.jsx"
 
 const BlockchainExplorer = () => {
   const [blocks, setBlocks] = useState([])
@@ -509,11 +506,6 @@ const BlockchainExplorer = () => {
                 />
               </div>
             </div>
-          </div>
-
-          {/* Go vs JavaScript JSON Marshaling Comparison Tool */}
-          <div className="mb-8">
-            <GoJsComparison />
           </div>
 
           {/* Blockchain Visualization */}
