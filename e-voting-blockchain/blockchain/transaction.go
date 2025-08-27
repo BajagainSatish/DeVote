@@ -11,10 +11,10 @@ import (
 // A transaction is created when a voter casts a vote to a candidate.
 
 type Transaction struct {
-	ID       string `json:"ID"`       // Added JSON tag for proper serialization, Unique identifier (hash) of the transaction
-	Sender   string `json:"Sender"`   // Added JSON tag for proper serialization, The voter's ID (usually hashed)
-	Receiver string `json:"Receiver"` // Added JSON tag for proper serialization, The candidate's ID
-	Payload  string `json:"Payload"`  // Added JSON tag for proper serialization, Optional data (in our case, "VOTE")
+	ID       string `json:"ID"`                 // Added JSON tag for proper serialization, Unique identifier (hash) of the transaction
+	Sender   string `json:"Sender,omitempty"`   // Added JSON tag for proper serialization, The voter's ID (usually hashed)
+	Receiver string `json:"Receiver,omitempty"` // Added JSON tag for proper serialization, The candidate's ID
+	Payload  string `json:"Payload"`            // Added JSON tag for proper serialization, Optional data (in our case, "VOTE")
 	Type     string `json:"Type,omitempty"`
 }
 
