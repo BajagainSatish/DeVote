@@ -1,3 +1,5 @@
+//pbft-node/main.go
+
 package main
 
 import (
@@ -122,6 +124,7 @@ func main() {
 	r.HandleFunc("/pbft/message", pbftServer.handlePBFTMessage).Methods("POST")
 	r.HandleFunc("/pbft/status", pbftServer.handlePBFTStatus).Methods("GET")
 	r.HandleFunc("/pbft/start-consensus", pbftServer.handleStartConsensus).Methods("POST")
+	r.HandleFunc("/pbft/behavior", pbftServer.handleSetBehavior).Methods("POST")
 
 	// Original blockchain routes (modified for PBFT)
 	r.HandleFunc("/vote", pbftServer.handleVote).Methods("POST", "OPTIONS")
@@ -370,4 +373,47 @@ func (s *PBFTServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
+}
+
+func (s *PBFTServer) handleSetBehavior(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	type BehaviorRequest struct {
+		Behavior      string  `json:"behavior"`
+		MaliciousRate float64 `json:"malicious_rate"`
+	}
+
+	var req BehaviorRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request format"})
+		return
+	}
+
+	// Convert string behavior to NodeBehavior enum
+	var behavior pbft.NodeBehavior
+	switch strings.ToLower(req.Behavior) {
+	case "honest":
+		behavior = pbft.BehaviorHonest
+	case "malicious":
+		behavior = pbft.BehaviorMalicious
+	case "crash":
+		behavior = pbft.BehaviorCrash
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid behavior. Use: honest, malicious, or crash"})
+		return
+	}
+
+	// Set the behavior
+	s.node.SetBehavior(behavior, req.MaliciousRate)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":         "success",
+		"node_id":        *nodeID,
+		"behavior":       req.Behavior,
+		"malicious_rate": req.MaliciousRate,
+		"message":        fmt.Sprintf("Node %s behavior set to %s", *nodeID, req.Behavior),
+	})
 }

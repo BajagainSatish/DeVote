@@ -98,3 +98,62 @@ func RunGenesisTest() {
 	t := &testing.T{}
 	TestCommonGenesisBlock(t)
 }
+
+// VerifyGenesisBlocks checks that all nodes have the same genesis block
+func VerifyGenesisBlocks() {
+	fmt.Println("=== GENESIS BLOCK VERIFICATION ===")
+
+	nodes := []string{
+		"http://localhost:8081",
+		"http://localhost:8082",
+		"http://localhost:8083",
+		"http://localhost:8084",
+	}
+
+	var genesisBlocks []map[string]interface{}
+
+	// Get genesis block from each node
+	for i, nodeURL := range nodes {
+		nodeID := fmt.Sprintf("node%d", i+1)
+
+		resp, err := http.Get(nodeURL + "/blockchain/genesis")
+		if err != nil {
+			fmt.Printf("❌ Failed to get genesis from %s: %v\n", nodeID, err)
+			continue
+		}
+		defer resp.Body.Close()
+
+		var genesis map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&genesis); err != nil {
+			fmt.Printf("❌ Failed to decode genesis from %s: %v\n", nodeID, err)
+			continue
+		}
+
+		genesisBlocks = append(genesisBlocks, genesis)
+
+		hash := genesis["hash"].(string)
+		fmt.Printf("✅ %s genesis: %s\n", nodeID, hash[:16]+"...")
+	}
+
+	// Verify all genesis blocks are identical
+	if len(genesisBlocks) < 2 {
+		fmt.Println("❌ Not enough genesis blocks to compare")
+		return
+	}
+
+	referenceHash := genesisBlocks[0]["hash"].(string)
+	allMatch := true
+
+	for i := 1; i < len(genesisBlocks); i++ {
+		if genesisBlocks[i]["hash"].(string) != referenceHash {
+			allMatch = false
+			break
+		}
+	}
+
+	if allMatch {
+		fmt.Printf("All %d nodes have identical genesis blocks\n", len(genesisBlocks))
+	} else {
+		fmt.Printf("Genesis blocks do not match across all nodes\n")
+	}
+}

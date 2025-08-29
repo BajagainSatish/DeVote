@@ -1,3 +1,5 @@
+//internal/pbft/node.go
+
 package pbft
 
 import (
@@ -7,9 +9,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
+)
+
+// NodeBehavior represents the behavior of a PBFT node in Byzantine fault tolerance scenarios
+type NodeBehavior int
+
+const (
+	BehaviorHonest NodeBehavior = iota
+	BehaviorMalicious
+	BehaviorCrash
 )
 
 // NodeState represents the current state of a PBFT node
@@ -37,6 +49,10 @@ type PBFTNode struct {
 	PrepareCount map[string]int   `json:"prepare_count"`
 	CommitCount  map[string]int   `json:"commit_count"`
 	mutex        sync.RWMutex
+
+	// Byzantine fault tolerance fields
+	Behavior      NodeBehavior `json:"behavior"`
+	MaliciousRate float64      `json:"malicious_rate"` // Probability of malicious behavior (0.0-1.0)
 
 	// Blockchain integration
 	OnBlockCommitted func(block interface{}) error
@@ -74,17 +90,19 @@ const (
 // NewPBFTNode creates a new PBFT node
 func NewPBFTNode(id, address string, port int, peers []Peer) *PBFTNode {
 	node := &PBFTNode{
-		ID:           id,
-		Address:      address,
-		Port:         port,
-		State:        StateIdle,
-		View:         0,
-		SequenceNum:  0,
-		IsPrimary:    false,
-		Peers:        make(map[string]*Peer),
-		MessageLog:   make([]PBFTMessage, 0),
-		PrepareCount: make(map[string]int),
-		CommitCount:  make(map[string]int),
+		ID:            id,
+		Address:       address,
+		Port:          port,
+		State:         StateIdle,
+		View:          0,
+		SequenceNum:   0,
+		IsPrimary:     false,
+		Peers:         make(map[string]*Peer),
+		MessageLog:    make([]PBFTMessage, 0),
+		PrepareCount:  make(map[string]int),
+		CommitCount:   make(map[string]int),
+		Behavior:      BehaviorHonest,
+		MaliciousRate: 0.0,
 	}
 
 	// Add peers
@@ -222,23 +240,17 @@ func (n *PBFTNode) handlePrePrepare(msg PBFTMessage) error {
 
 	log.Printf("Node %s: Received PRE-PREPARE for block %s", n.ID, msg.BlockHash[:8])
 
-	if msg.BlockData == "" || msg.BlockHash == "" {
-		return fmt.Errorf("invalid PRE-PREPARE message")
+	if n.Behavior == BehaviorMalicious {
+		shouldRefuseParticipation := rand.Float64() < n.MaliciousRate
+		if shouldRefuseParticipation {
+			log.Printf("Node %s: MALICIOUS behavior - REFUSING to participate in consensus", n.ID)
+			return nil // Don't participate at all
+		}
 	}
 
-	// Parse and validate block structure
-	var blockData map[string]interface{}
-	if err := json.Unmarshal([]byte(msg.BlockData), &blockData); err != nil {
-		log.Printf("Node %s: Invalid block data in PRE-PREPARE: %v", n.ID, err)
-		return fmt.Errorf("invalid block data")
-	}
-
-	// Validate block hash matches the data
-	hash := sha256.Sum256([]byte(msg.BlockData))
-	expectedHash := hex.EncodeToString(hash[:])
-	if expectedHash != msg.BlockHash {
-		log.Printf("Node %s: Block hash mismatch in PRE-PREPARE", n.ID)
-		return fmt.Errorf("block hash mismatch")
+	if !n.validateBlock(msg.BlockData, msg.BlockHash) {
+		log.Printf("Node %s: Block validation failed, rejecting PRE-PREPARE", n.ID)
+		return fmt.Errorf("invalid block")
 	}
 
 	// Send PREPARE message
@@ -273,6 +285,14 @@ func (n *PBFTNode) handlePrepare(msg PBFTMessage) error {
 		return nil
 	}
 
+	if n.Behavior == BehaviorMalicious {
+		shouldIgnore := rand.Float64() < n.MaliciousRate
+		if shouldIgnore {
+			log.Printf("Node %s: MALICIOUS behavior - IGNORING PREPARE from %s", n.ID, msg.NodeID)
+			return nil
+		}
+	}
+
 	// Count PREPARE messages for this block
 	key := fmt.Sprintf("%d-%s", msg.SequenceNum, msg.BlockHash)
 	n.PrepareCount[key]++
@@ -289,6 +309,14 @@ func (n *PBFTNode) handlePrepare(msg PBFTMessage) error {
 func (n *PBFTNode) handleCommit(msg PBFTMessage) error {
 	if n.State != StateCommit && n.State != StatePrePrepare && n.State != StatePrepare {
 		return nil
+	}
+
+	if n.Behavior == BehaviorMalicious {
+		shouldIgnore := rand.Float64() < n.MaliciousRate
+		if shouldIgnore {
+			log.Printf("Node %s: MALICIOUS behavior - IGNORING COMMIT from %s", n.ID, msg.NodeID)
+			return nil
+		}
 	}
 
 	// Count COMMIT messages for this block
@@ -313,6 +341,14 @@ func (n *PBFTNode) checkPrepareThreshold(key string, sequenceNum int, blockHash 
 	if n.PrepareCount[key] >= requiredPrepares {
 		log.Printf("Node %s: Prepare threshold reached (%d/%d), sending COMMIT",
 			n.ID, n.PrepareCount[key], requiredPrepares)
+
+		if n.Behavior == BehaviorMalicious {
+			shouldRefuseCommit := rand.Float64() < n.MaliciousRate
+			if shouldRefuseCommit {
+				log.Printf("Node %s: MALICIOUS behavior - REFUSING to send COMMIT", n.ID)
+				return // Don't send COMMIT message
+			}
+		}
 
 		// Send COMMIT message
 		commitMsg := PBFTMessage{
@@ -405,12 +441,101 @@ func (n *PBFTNode) GetStatus() map[string]interface{} {
 	defer n.mutex.RUnlock()
 
 	return map[string]interface{}{
-		"id":            n.ID,
-		"state":         n.State,
-		"view":          n.View,
-		"sequence_num":  n.SequenceNum,
-		"is_primary":    n.IsPrimary,
-		"peer_count":    len(n.Peers),
-		"message_count": len(n.MessageLog),
+		"id":             n.ID,
+		"state":          n.State,
+		"view":           n.View,
+		"sequence_num":   n.SequenceNum,
+		"is_primary":     n.IsPrimary,
+		"peer_count":     len(n.Peers),
+		"message_count":  len(n.MessageLog),
+		"behavior":       n.Behavior,
+		"malicious_rate": n.MaliciousRate,
 	}
+}
+
+// validateBlock validates the block data and hash with Byzantine fault tolerance
+func (n *PBFTNode) validateBlock(blockData string, blockHash string) bool {
+	// Simulate malicious behavior
+	if n.Behavior == BehaviorMalicious {
+		shouldReject := rand.Float64() < n.MaliciousRate
+		log.Printf("Node %s: MALICIOUS behavior - %s block (rate: %.2f)",
+			n.ID, map[bool]string{true: "REJECTING", false: "ACCEPTING"}[shouldReject], n.MaliciousRate)
+		return !shouldReject
+	}
+
+	if n.Behavior == BehaviorCrash {
+		// Crashed node doesn't validate anything
+		log.Printf("Node %s: CRASHED - not validating", n.ID)
+		return false
+	}
+
+	// Honest validation
+	var block map[string]interface{}
+	if err := json.Unmarshal([]byte(blockData), &block); err != nil {
+		log.Printf("Node %s: Invalid block structure", n.ID)
+		return false
+	}
+
+	// Validate block hash
+	hash := sha256.Sum256([]byte(blockData))
+	expectedHash := hex.EncodeToString(hash[:])
+	if expectedHash != blockHash {
+		log.Printf("Node %s: Block hash mismatch", n.ID)
+		return false
+	}
+
+	// Additional validation: check if transactions are valid
+	if transactions, ok := block["transactions"].([]interface{}); ok {
+		for _, tx := range transactions {
+			if !n.validateTransaction(tx) {
+				log.Printf("Node %s: Invalid transaction in block", n.ID)
+				return false
+			}
+		}
+	}
+
+	log.Printf("Node %s: Block validation PASSED", n.ID)
+	return true
+}
+
+// validateTransaction validates a single transaction
+func (n *PBFTNode) validateTransaction(tx interface{}) bool {
+	txMap, ok := tx.(map[string]interface{})
+	if !ok {
+		return false
+	}
+
+	// Check required fields
+	requiredFields := []string{"voter_id", "candidate", "timestamp"}
+	for _, field := range requiredFields {
+		if _, exists := txMap[field]; !exists {
+			return false
+		}
+	}
+
+	// Validate candidate (simple validation)
+	candidate, ok := txMap["candidate"].(string)
+	if !ok || candidate == "" {
+		return false
+	}
+
+	return true
+}
+
+// SetBehavior sets the behavior of the node for Byzantine fault tolerance
+func (n *PBFTNode) SetBehavior(behavior NodeBehavior, maliciousRate float64) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
+	n.Behavior = behavior
+	n.MaliciousRate = maliciousRate
+
+	behaviorNames := map[NodeBehavior]string{
+		BehaviorHonest:    "HONEST",
+		BehaviorMalicious: "MALICIOUS",
+		BehaviorCrash:     "CRASHED",
+	}
+
+	log.Printf("Node %s: Behavior set to %s (malicious rate: %.2f)",
+		n.ID, behaviorNames[behavior], maliciousRate)
 }

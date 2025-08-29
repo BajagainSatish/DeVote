@@ -21,13 +21,18 @@ func main() {
 		tests.RunGenesisTest()
 	case "consensus":
 		tests.RunConsensusTest()
+	case "byzantine":
+		fmt.Println("Running Byzantine Fault Tolerance Test...")
+		tests.RunByzantineTest()
 	case "all":
 		tests.RunGenesisTest()
 		fmt.Println("\n" + strings.Repeat("=", 50))
 		tests.RunConsensusTest()
+		fmt.Println("\n" + strings.Repeat("=", 50))
+		tests.RunByzantineTest()
 	default:
 		fmt.Printf("Unknown test type: %s\n", *testType)
-		fmt.Println("Available tests: genesis, consensus, all")
+		fmt.Println("Available tests: genesis, consensus, byzantine")
 		os.Exit(1)
 	}
 }
