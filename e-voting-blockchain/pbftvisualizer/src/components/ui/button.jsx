@@ -1,33 +1,35 @@
-import { cn } from "../../lib/utils.js"
-
 const Button = ({ className, variant = "default", size = "default", ...props }) => {
-  const variants = {
-    default: "bg-primary text-primary-foreground hover:bg-primary/90",
-    destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-    outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-    ghost: "hover:bg-accent hover:text-accent-foreground",
-    link: "text-primary underline-offset-4 hover:underline",
+  const getVariantClass = (variant) => {
+    switch (variant) {
+      case "destructive":
+        return "button-destructive"
+      case "outline":
+        return "button-outline"
+      case "secondary":
+        return "button-outline" // Using outline style for secondary
+      case "ghost":
+        return "button-outline" // Using outline style for ghost
+      case "link":
+        return "button-outline" // Using outline style for link
+      default:
+        return "button-primary"
+    }
   }
 
-  const sizes = {
-    default: "h-10 px-4 py-2",
-    sm: "h-9 rounded-md px-3",
-    lg: "h-11 rounded-md px-8",
-    icon: "h-10 w-10",
+  const getSizeClass = (size) => {
+    switch (size) {
+      case "sm":
+        return "button-sm"
+      case "lg":
+        return "button-lg"
+      case "icon":
+        return "button-icon"
+      default:
+        return ""
+    }
   }
 
-  return (
-    <button
-      className={cn(
-        "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
-        variants[variant],
-        sizes[size],
-        className,
-      )}
-      {...props}
-    />
-  )
+  return <button className={`button ${getVariantClass(variant)} ${getSizeClass(size)} ${className || ""}`} {...props} />
 }
 
 export { Button }

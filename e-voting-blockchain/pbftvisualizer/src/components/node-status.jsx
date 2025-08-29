@@ -1,68 +1,80 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Badge } from "./common/Badge"
 import { Server, Shield, AlertTriangle } from "lucide-react"
 
 export function NodeStatus({ node }) {
-  const getStatusColor = (status) => {
+  const getStatusVariant = (status) => {
     switch (status) {
       case "active":
-        return "bg-chart-4 text-white"
+      case "demo":
+        return "success"
       case "malicious":
-        return "bg-chart-3 text-white"
+        return "destructive"
       case "inactive":
-        return "bg-muted text-muted-foreground"
+        return "outline"
       default:
-        return "bg-muted text-muted-foreground"
+        return "outline"
     }
   }
 
   const getStatusIcon = (status) => {
     switch (status) {
       case "active":
-        return <Server className="h-4 w-4" />
+      case "demo":
+        return <Server style={{ width: "16px", height: "16px" }} />
       case "malicious":
-        return <AlertTriangle className="h-4 w-4" />
+        return <AlertTriangle style={{ width: "16px", height: "16px" }} />
       case "inactive":
-        return <Server className="h-4 w-4 opacity-50" />
+        return <Server style={{ width: "16px", height: "16px", opacity: 0.5 }} />
       default:
-        return <Server className="h-4 w-4" />
+        return <Server style={{ width: "16px", height: "16px" }} />
     }
   }
 
   return (
-    <Card className="relative">
+    <div className={`node-card ${node.status} ${node.isPrimary ? "primary" : ""}`}>
       {node.isPrimary && (
-        <div className="absolute -top-2 -right-2">
-          <Badge className="bg-primary text-primary-foreground">
-            <Shield className="h-3 w-3 mr-1" />
+        <div style={{ position: "absolute", top: "-8px", right: "-8px" }}>
+          <Badge variant="default">
+            <Shield style={{ width: "12px", height: "12px", marginRight: "4px" }} />
             Primary
           </Badge>
         </div>
       )}
-      <CardHeader className="pb-2">
-        <CardTitle className="text-sm font-medium flex items-center gap-2">
+
+      <div className="node-header">
+        <div className="node-id">
           {getStatusIcon(node.status)}
           {node.id.toUpperCase()}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="text-xs text-muted-foreground">
-          {node.address}:{node.port}
         </div>
-        <Badge className={getStatusColor(node.status)} variant="secondary">
-          {node.status.toUpperCase()}
-        </Badge>
-        {node.status === "active" && (
-          <div className="text-xs space-y-1">
-            <div>
-              Height: <span className="font-mono">{node.height}</span>
+      </div>
+
+      <div className="node-info">
+        <div className="node-detail">
+          <span className="node-detail-label">Address:</span>
+          <span className="node-detail-value">
+            {node.address}:{node.port}
+          </span>
+        </div>
+
+        <div style={{ marginTop: "8px" }}>
+          <Badge variant={getStatusVariant(node.status)}>
+            {node.status === "demo" ? "DEMO" : node.status.toUpperCase()}
+          </Badge>
+        </div>
+
+        {(node.status === "active" || node.status === "demo") && (
+          <div style={{ marginTop: "12px" }}>
+            <div className="node-detail">
+              <span className="node-detail-label">Height:</span>
+              <span className="node-detail-value">{node.height}</span>
             </div>
-            <div>
-              Hash: <span className="font-mono text-xs">{node.hash.slice(0, 8)}...</span>
+            <div className="node-detail">
+              <span className="node-detail-label">Hash:</span>
+              <span className="node-detail-value">{node.hash.slice(0, 8)}...</span>
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
