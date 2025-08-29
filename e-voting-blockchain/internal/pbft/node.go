@@ -160,8 +160,25 @@ func (n *PBFTNode) StartConsensus(blockData interface{}) error {
 
 	log.Printf("Node %s: Starting consensus for block %s (seq: %d)", n.ID, blockHash[:8], n.SequenceNum)
 
+	prepareMsg := PBFTMessage{
+		Type:        PrepareMsg,
+		View:        n.View,
+		SequenceNum: n.SequenceNum,
+		NodeID:      n.ID,
+		BlockHash:   blockHash,
+		Timestamp:   time.Now(),
+	}
+
+	// Count primary's own PREPARE
+	key := fmt.Sprintf("%d-%s", n.SequenceNum, blockHash)
+	n.PrepareCount[key]++
+
 	// Broadcast PRE-PREPARE to all peers
 	go n.broadcastMessage(prePrepareMsg)
+
+	go n.broadcastMessage(prepareMsg)
+
+	n.checkPrepareThreshold(key, n.SequenceNum, blockHash)
 
 	return nil
 }
@@ -239,8 +256,13 @@ func (n *PBFTNode) handlePrePrepare(msg PBFTMessage) error {
 
 	log.Printf("Node %s: Block validated, sending PREPARE", n.ID)
 
+	key := fmt.Sprintf("%d-%s", msg.SequenceNum, msg.BlockHash)
+	n.PrepareCount[key]++
+
 	// Broadcast PREPARE to all peers
 	go n.broadcastMessage(prepareMsg)
+
+	n.checkPrepareThreshold(key, msg.SequenceNum, msg.BlockHash)
 
 	return nil
 }
@@ -258,26 +280,7 @@ func (n *PBFTNode) handlePrepare(msg PBFTMessage) error {
 	log.Printf("Node %s: Received PREPARE from %s for block %s (count: %d)",
 		n.ID, msg.NodeID, msg.BlockHash[:8], n.PrepareCount[key])
 
-	// Check if we have enough PREPARE messages (2f+1 where f is max faulty nodes)
-	// For simplicity, assume f=1, so we need 3 total nodes minimum
-	requiredPrepares := 2 * 1 // 2f (excluding self)
-
-	if n.PrepareCount[key] >= requiredPrepares {
-		// Send COMMIT message
-		commitMsg := PBFTMessage{
-			Type:        CommitMsg,
-			View:        n.View,
-			SequenceNum: msg.SequenceNum,
-			NodeID:      n.ID,
-			BlockHash:   msg.BlockHash,
-			Timestamp:   time.Now(),
-		}
-
-		n.State = StateCommit
-
-		// Broadcast COMMIT to all peers
-		go n.broadcastMessage(commitMsg)
-	}
+	n.checkPrepareThreshold(key, msg.SequenceNum, msg.BlockHash)
 
 	return nil
 }
@@ -295,17 +298,59 @@ func (n *PBFTNode) handleCommit(msg PBFTMessage) error {
 	log.Printf("Node %s: Received COMMIT from %s for block %s (count: %d)",
 		n.ID, msg.NodeID, msg.BlockHash[:8], n.CommitCount[key])
 
-	// Check if we have enough COMMIT messages (2f+1)
-	requiredCommits := 2*1 + 1 // 2f+1
+	n.checkCommitThreshold(key, msg.SequenceNum, msg.BlockHash)
+
+	return nil
+}
+
+// checkPrepareThreshold checks if the prepare threshold is reached
+func (n *PBFTNode) checkPrepareThreshold(key string, sequenceNum int, blockHash string) {
+	// Calculate required PREPARE messages: 2f+1 total nodes, so we need 2f PREPARE messages
+	totalNodes := len(n.Peers) + 1 // +1 for self
+	f := (totalNodes - 1) / 3      // Maximum faulty nodes
+	requiredPrepares := 2 * f      // Need 2f PREPARE messages
+
+	if n.PrepareCount[key] >= requiredPrepares {
+		log.Printf("Node %s: Prepare threshold reached (%d/%d), sending COMMIT",
+			n.ID, n.PrepareCount[key], requiredPrepares)
+
+		// Send COMMIT message
+		commitMsg := PBFTMessage{
+			Type:        CommitMsg,
+			View:        n.View,
+			SequenceNum: sequenceNum,
+			NodeID:      n.ID,
+			BlockHash:   blockHash,
+			Timestamp:   time.Now(),
+		}
+
+		n.State = StateCommit
+
+		commitKey := fmt.Sprintf("%d-%s", sequenceNum, blockHash)
+		n.CommitCount[commitKey]++
+
+		// Broadcast COMMIT to all peers
+		go n.broadcastMessage(commitMsg)
+
+		n.checkCommitThreshold(commitKey, sequenceNum, blockHash)
+	}
+}
+
+// checkCommitThreshold checks if the commit threshold is reached
+func (n *PBFTNode) checkCommitThreshold(key string, sequenceNum int, blockHash string) {
+	// Calculate required COMMIT messages: need 2f+1 total
+	totalNodes := len(n.Peers) + 1 // +1 for self
+	f := (totalNodes - 1) / 3      // Maximum faulty nodes
+	requiredCommits := 2*f + 1     // Need 2f+1 COMMIT messages
 
 	if n.CommitCount[key] >= requiredCommits {
-		// Block is committed!
-		log.Printf("Node %s: Block %s COMMITTED!", n.ID, msg.BlockHash[:8])
+		log.Printf("Node %s: Commit threshold reached (%d/%d), Block %s COMMITTED!",
+			n.ID, n.CommitCount[key], requiredCommits, blockHash[:8])
 
 		// Find the original block data
 		var blockData string
 		for _, logMsg := range n.MessageLog {
-			if logMsg.Type == PrePrepareMsg && logMsg.BlockHash == msg.BlockHash {
+			if logMsg.Type == PrePrepareMsg && logMsg.BlockHash == blockHash {
 				blockData = logMsg.BlockData
 				break
 			}
@@ -327,8 +372,6 @@ func (n *PBFTNode) handleCommit(msg PBFTMessage) error {
 		delete(n.PrepareCount, key)
 		delete(n.CommitCount, key)
 	}
-
-	return nil
 }
 
 // broadcastMessage sends a message to all peers

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -102,7 +103,9 @@ func main() {
 		bc.Blocks = append(bc.Blocks, block)
 		blockchain.SaveBlock(block)
 
-		log.Printf("Node %s: Block #%d committed to blockchain", *nodeID, block.Index)
+		bc.ClearPendingTransactions()
+
+		log.Printf("Node %s: Block #%d committed to blockchain (Hash: %s)", *nodeID, block.Index, block.Hash[:8])
 		return nil
 	}
 
@@ -223,13 +226,46 @@ func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 	// Create transaction
 	tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
 
-	// Add to pending transactions
+	if !s.node.IsPrimary {
+		// Find the primary node
+		var primaryAddress string
+		for _, peer := range s.node.Peers {
+			if peer.ID == "node1" { // Assuming node1 is always primary
+				primaryAddress = fmt.Sprintf("http://%s:%d", peer.Address, peer.Port)
+				break
+			}
+		}
+
+		if primaryAddress != "" {
+			// Forward the vote to the primary
+			go func() {
+				voteData, _ := json.Marshal(req)
+				resp, err := http.Post(primaryAddress+"/vote", "application/json",
+					strings.NewReader(string(voteData)))
+				if err != nil {
+					log.Printf("Node %s: Failed to forward vote to primary: %v", *nodeID, err)
+				} else {
+					resp.Body.Close()
+					log.Printf("Node %s: Vote forwarded to primary", *nodeID)
+				}
+			}()
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"transaction_id": tx.ID,
+			"status":         "forwarded_to_primary",
+			"message":        "Vote forwarded to primary node for consensus",
+			"node_type":      "backup",
+		})
+		return
+	}
+
 	s.blockchain.AddTransaction(tx)
 
-	// If this node is primary and we have enough transactions, start consensus
-	if s.node.IsPrimary && s.blockchain.GetPendingTransactionCount() >= 1 {
+	if s.blockchain.GetPendingTransactionCount() >= 1 {
 		go func() {
-			time.Sleep(2 * time.Second) // Small delay to collect more transactions
+			time.Sleep(1 * time.Second) // Small delay to collect more transactions
 
 			pendingTxs := s.blockchain.GetPendingTransactions()
 			if len(pendingTxs) > 0 {
@@ -245,10 +281,12 @@ func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 
 				newBlock.Hash = newBlock.ComputeHash()
 
-				log.Printf("Node %s: Starting consensus for block #%d with %d transactions",
+				log.Printf("Node %s (PRIMARY): Starting consensus for block #%d with %d transactions",
 					*nodeID, newBlock.Index, len(pendingTxs))
 
-				s.node.StartConsensus(newBlock)
+				if err := s.node.StartConsensus(newBlock); err != nil {
+					log.Printf("Node %s: Failed to start consensus: %v", *nodeID, err)
+				}
 			}
 		}()
 	}
@@ -258,6 +296,7 @@ func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 		"transaction_id": tx.ID,
 		"status":         "pending_consensus",
 		"message":        "Vote submitted for consensus",
+		"node_type":      "primary",
 	})
 }
 

@@ -22,14 +22,14 @@ type Blockchain struct {
 func CreateGenesisBlock() Block {
 	genesis := Block{
 		Index:        0,
-		Timestamp:    time.Now().Format(time.RFC3339), // Use RFC3339 format for consistency
+		Timestamp:    "2025-01-01T00:00:00Z", // Fixed timestamp for deterministic genesis across all nodes
 		PrevHash:     "",
 		Transactions: []Transaction{},                    // Empty transaction list
 		MerkleRoot:   ComputeMerkleRoot([]Transaction{}), // Compute Merkle root for empty transactions
-		Nonce:        0,                                  // Initialize nonce properly
+		Nonce:        12345,                              // Fixed nonce instead of mining for deterministic genesis
 	}
 
-	genesis.MineBlock(2) // Use difficulty of 2 for genesis block
+	genesis.GenerateHash()
 	return genesis
 }
 
@@ -268,4 +268,11 @@ func (bc *Blockchain) RecomputeMerkleRootsAndHashes() error {
 		fmt.Printf("Recomputed Block #%d PrevHash: %s Hash: %s\n", b.Index, b.PrevHash, b.Hash)
 	}
 	return nil
+}
+
+// ClearPendingTransactions clears the pending transaction queue (used after PBFT consensus)
+func (bc *Blockchain) ClearPendingTransactions() {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+	bc.PendingTransactions = make([]Transaction, 0)
 }

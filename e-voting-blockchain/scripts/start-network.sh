@@ -6,6 +6,9 @@ echo "Starting PBFT Blockchain Network..."
 
 ./scripts/stop-network.sh 2>/dev/null
 
+echo "Cleaning blockchain databases..."
+./scripts/clean-data.sh
+
 # Create data directories
 mkdir -p data/node_node1
 mkdir -p data/node_node2  

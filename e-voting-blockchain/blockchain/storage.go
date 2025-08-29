@@ -13,7 +13,6 @@ import (
 	"go.etcd.io/bbolt"
 )
 
-const bucketName = "Blocks"
 const anonBucketName = "AnonTokens"
 
 var db *bbolt.DB
