@@ -3,155 +3,185 @@ package blockchain
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
 )
 
-// MerkleNode represents a node in the Merkle Tree
+// MerkleNode represents a node in the Merkle tree
 type MerkleNode struct {
 	Left  *MerkleNode
 	Right *MerkleNode
 	Hash  string
 }
 
-// MerkleTree represents the complete Merkle Tree
+// MerkleTree represents a Merkle tree for transaction verification
 type MerkleTree struct {
-	Root *MerkleNode
+	Root         *MerkleNode
+	Transactions []Transaction
 }
 
-// MerkleProofElement represents a single element in a Merkle proof
-type MerkleProofElement struct {
-	Hash     string
-	Position string // "left" or "right"
-}
-
-// hashTransaction serializes and hashes a transaction deterministically
-func hashTransaction(tx Transaction) string {
-	// Build a deterministic JSON representation that matches Transaction struct order:
-	// ID, Sender, Receiver, Payload, Type (Type omitted when empty)
-	txData := struct {
-		ID       string `json:"ID"`
-		Sender   string `json:"Sender"`
-		Receiver string `json:"Receiver"`
-		Payload  string `json:"Payload"`
-		Type     string `json:"Type,omitempty"`
-	}{
-		ID:       tx.ID,
-		Sender:   tx.Sender,
-		Receiver: tx.Receiver,
-		Payload:  tx.Payload,
-		Type:     tx.Type,
-	}
-
-	data, _ := json.Marshal(txData) // deterministic JSON (same field order)
-	hash := sha256.Sum256(data)
-	return hex.EncodeToString(hash[:])
-}
-
-// hashConcat concatenates two hex strings and returns SHA256
-func hashConcat(left, right string) string {
-	h := sha256.Sum256([]byte(left + right))
-	return hex.EncodeToString(h[:])
-}
-
-// NewMerkleTree builds a Merkle tree from a slice of transactions
+// NewMerkleTree creates a new Merkle tree from transactions
 func NewMerkleTree(transactions []Transaction) *MerkleTree {
 	if len(transactions) == 0 {
-		return &MerkleTree{Root: &MerkleNode{Hash: ""}}
+		return &MerkleTree{
+			Root:         &MerkleNode{Hash: ""},
+			Transactions: transactions,
+		}
 	}
 
 	// Create leaf nodes
-	nodes := []*MerkleNode{}
+	var nodes []*MerkleNode
 	for _, tx := range transactions {
-		nodes = append(nodes, &MerkleNode{Hash: hashTransaction(tx)})
+		hash := hashTransaction(tx)
+		nodes = append(nodes, &MerkleNode{Hash: hash})
 	}
 
 	// Build tree bottom-up
 	for len(nodes) > 1 {
-		// Duplicate last node if odd
-		if len(nodes)%2 != 0 {
-			nodes = append(nodes, &MerkleNode{Hash: nodes[len(nodes)-1].Hash})
-		}
+		var newLevel []*MerkleNode
 
-		var nextLevel []*MerkleNode
 		for i := 0; i < len(nodes); i += 2 {
-			left := nodes[i]
-			right := nodes[i+1]
+			var left, right *MerkleNode
+			left = nodes[i]
+
+			if i+1 < len(nodes) {
+				right = nodes[i+1]
+			} else {
+				// Odd number of nodes, duplicate the last one
+				right = nodes[i]
+			}
+
+			// Create parent node
+			parentHash := hashPair(left.Hash, right.Hash)
 			parent := &MerkleNode{
 				Left:  left,
 				Right: right,
-				Hash:  hashConcat(left.Hash, right.Hash),
+				Hash:  parentHash,
 			}
-			nextLevel = append(nextLevel, parent)
+
+			newLevel = append(newLevel, parent)
 		}
-		nodes = nextLevel
+
+		nodes = newLevel
 	}
 
-	return &MerkleTree{Root: nodes[0]}
+	return &MerkleTree{
+		Root:         nodes[0],
+		Transactions: transactions,
+	}
 }
 
-// GetMerkleRoot returns the root hash
-func (mt *MerkleTree) GetMerkleRoot() string {
-	if mt.Root == nil {
+// ComputeMerkleRoot computes the Merkle root from a list of transactions
+func ComputeMerkleRoot(transactions []Transaction) string {
+	if len(transactions) == 0 {
 		return ""
 	}
-	return mt.Root.Hash
+
+	tree := NewMerkleTree(transactions)
+	return tree.Root.Hash
 }
 
-// GenerateMerkleProof generates a Merkle proof with left/right positions
-func (mt *MerkleTree) GenerateMerkleProof(tx Transaction) ([]MerkleProofElement, error) {
-	if mt.Root == nil {
-		return nil, fmt.Errorf("empty merkle tree")
+// GenerateMerkleProof generates a Merkle proof for a specific transaction
+func (mt *MerkleTree) GenerateMerkleProof(tx Transaction) ([]string, error) {
+	// Find transaction index
+	txIndex := -1
+	for i, t := range mt.Transactions {
+		if t.ID == tx.ID {
+			txIndex = i
+			break
+		}
 	}
 
-	proof := []MerkleProofElement{}
-	found := mt.generateProofRecursive(mt.Root, hashTransaction(tx), &proof)
-	if !found {
-		return nil, fmt.Errorf("transaction not found")
+	if txIndex == -1 {
+		return nil, fmt.Errorf("transaction not found in tree")
 	}
+
+	var proof []string
+	mt.generateProofRecursive(mt.Root, txIndex, len(mt.Transactions), &proof)
+
 	return proof, nil
 }
 
-func (mt *MerkleTree) generateProofRecursive(node *MerkleNode, txHash string, proof *[]MerkleProofElement) bool {
-	if node == nil {
-		return false
-	}
+// generateProofRecursive recursively generates proof path
+func (mt *MerkleTree) generateProofRecursive(node *MerkleNode, txIndex, totalTxs int, proof *[]string) {
 	if node.Left == nil && node.Right == nil {
-		return node.Hash == txHash
+		// Leaf node, no more proof needed
+		return
 	}
 
-	if mt.generateProofRecursive(node.Left, txHash, proof) {
+	// Determine which subtree contains our transaction
+	leftSubtreeSize := getLeftSubtreeSize(totalTxs)
+
+	if txIndex < leftSubtreeSize {
+		// Transaction is in left subtree, add right sibling to proof
 		if node.Right != nil {
-			*proof = append(*proof, MerkleProofElement{Hash: node.Right.Hash, Position: "right"})
+			*proof = append(*proof, node.Right.Hash)
 		}
-		return true
-	}
-
-	if mt.generateProofRecursive(node.Right, txHash, proof) {
+		mt.generateProofRecursive(node.Left, txIndex, leftSubtreeSize, proof)
+	} else {
+		// Transaction is in right subtree, add left sibling to proof
 		if node.Left != nil {
-			*proof = append(*proof, MerkleProofElement{Hash: node.Left.Hash, Position: "left"})
+			*proof = append(*proof, node.Left.Hash)
 		}
-		return true
+		mt.generateProofRecursive(node.Right, txIndex-leftSubtreeSize, totalTxs-leftSubtreeSize, proof)
 	}
-
-	return false
 }
 
-// VerifyMerkleProof verifies the Merkle proof against root
-func VerifyMerkleProof(tx Transaction, proof []MerkleProofElement, merkleRoot string) bool {
+// VerifyMerkleProof verifies a Merkle proof for a transaction
+func VerifyMerkleProof(tx Transaction, proof []string, rootHash string) bool {
+	if rootHash == "" {
+		return len(proof) == 0
+	}
+
 	currentHash := hashTransaction(tx)
-	for _, p := range proof {
-		if p.Position == "left" {
-			currentHash = hashConcat(p.Hash, currentHash)
+
+	for _, siblingHash := range proof {
+		// Try both orders (current+sibling and sibling+current)
+		hash1 := hashPair(currentHash, siblingHash)
+		hash2 := hashPair(siblingHash, currentHash)
+
+		// For simplicity, we'll use the lexicographically smaller combination
+		if currentHash < siblingHash {
+			currentHash = hash1
 		} else {
-			currentHash = hashConcat(currentHash, p.Hash)
+			currentHash = hash2
 		}
 	}
-	return currentHash == merkleRoot
+
+	return currentHash == rootHash
 }
 
-// ComputeMerkleRoot computes Merkle root from transactions
-func ComputeMerkleRoot(transactions []Transaction) string {
-	tree := NewMerkleTree(transactions)
-	return tree.GetMerkleRoot()
+// Helper functions
+
+// hashTransaction creates a hash for a transaction
+func hashTransaction(tx Transaction) string {
+	data := tx.ID + tx.Sender + tx.Receiver + tx.Payload
+	hash := sha256.Sum256([]byte(data))
+	return hex.EncodeToString(hash[:])
+}
+
+// hashPair creates a hash from two input hashes
+func hashPair(left, right string) string {
+	combined := left + right
+	hash := sha256.Sum256([]byte(combined))
+	return hex.EncodeToString(hash[:])
+}
+
+// getLeftSubtreeSize calculates the size of the left subtree for a given total
+func getLeftSubtreeSize(total int) int {
+	if total <= 1 {
+		return total
+	}
+
+	// Find the largest power of 2 less than or equal to total
+	powerOf2 := 1
+	for powerOf2*2 <= total {
+		powerOf2 *= 2
+	}
+
+	// Left subtree gets the power of 2, or half if total is exactly a power of 2
+	if total == powerOf2 {
+		return total / 2
+	}
+
+	return powerOf2
 }

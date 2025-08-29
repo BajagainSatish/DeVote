@@ -16,11 +16,10 @@ import (
 // We store the authority key pair in memory (for demo). In prod, protect the private key and load from disk or HSM.
 
 var (
-	authorityPriv     *rsa.PrivateKey
-	authorityPubN     *big.Int
-	authorityPubE     int
-	anonMutex         sync.RWMutex
-	usedAnonTokensBkt = "UsedAnonTokens"
+	authorityPriv *rsa.PrivateKey
+	authorityPubN *big.Int
+	authorityPubE int
+	anonMutex     sync.RWMutex
 )
 
 // InitAuthorityKeys generates an RSA keypair (or load from file in prod).
@@ -105,14 +104,4 @@ func compareBigIntBytes(a, b *big.Int) bool {
 		}
 	}
 	return true
-}
-
-// Utility: sign raw message (server-side) using RSA private key (used for blind signing after client blinds).
-func signRawMessageWithPrivateKey(msgInt *big.Int) *big.Int {
-	anonMutex.RLock()
-	defer anonMutex.RUnlock()
-	if authorityPriv == nil {
-		return nil
-	}
-	return new(big.Int).Exp(msgInt, authorityPriv.D, authorityPubN)
 }

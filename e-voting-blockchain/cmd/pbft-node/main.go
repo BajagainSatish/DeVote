@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -41,13 +42,18 @@ func main() {
 		log.Fatalf("Failed to create data directory: %v", err)
 	}
 
-	// Change to node-specific data directory
-	if err := os.Chdir(nodeDataDir); err != nil {
-		log.Fatalf("Failed to change to data directory: %v", err)
+	nodeDBPath := filepath.Join(nodeDataDir, "blockchain.db")
+
+	// Load network configuration (use absolute path)
+	configPath := *config
+	if !filepath.IsAbs(configPath) {
+		// Convert relative path to absolute before we potentially change directories
+		if absPath, err := filepath.Abs(configPath); err == nil {
+			configPath = absPath
+		}
 	}
 
-	// Load network configuration
-	networkConfig, err := pbft.LoadNetworkConfig(*config)
+	networkConfig, err := pbft.LoadNetworkConfig(configPath)
 	if err != nil {
 		log.Fatalf("Failed to load network config: %v", err)
 	}
@@ -70,9 +76,8 @@ func main() {
 		nodeConfig.Port = *port
 	}
 
-	// Initialize blockchain
-	bc := blockchain.NewBlockchain()
-	log.Printf("Node %s: Blockchain initialized with %d blocks", *nodeID, len(bc.Blocks))
+	bc := blockchain.NewBlockchain(nodeDBPath)
+	log.Printf("Node %s: Blockchain initialized with %d blocks (DB: %s)", *nodeID, len(bc.Blocks), nodeDBPath)
 
 	// Get peers for this node
 	peers := networkConfig.GetPeersForNode(*nodeID)

@@ -1,4 +1,3 @@
-// blockchain.go
 package blockchain
 
 import (
@@ -35,8 +34,19 @@ func CreateGenesisBlock() Block {
 }
 
 // NewBlockchain creates a new blockchain with database integration
-func NewBlockchain() *Blockchain {
-	InitDB() // Open DB
+func NewBlockchain(customDBPath ...string) *Blockchain {
+	var err error
+
+	// Initialize database with custom path if provided
+	if len(customDBPath) > 0 && customDBPath[0] != "" {
+		err = InitDB(customDBPath[0])
+	} else {
+		err = InitDB() // Use default path
+	}
+
+	if err != nil {
+		fmt.Printf("Database initialization error: %v\n", err)
+	}
 
 	blocks, err := LoadBlocks()
 
