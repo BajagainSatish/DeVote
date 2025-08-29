@@ -125,6 +125,10 @@ func main() {
 	r.HandleFunc("/tally", pbftServer.handleTally).Methods("GET", "OPTIONS")
 	r.HandleFunc("/blockchain", pbftServer.handleGetBlockchain).Methods("GET")
 
+	r.HandleFunc("/blockchain/genesis", pbftServer.handleGetGenesis).Methods("GET")
+	r.HandleFunc("/blockchain/state", pbftServer.handleGetBlockchainState).Methods("GET")
+	r.HandleFunc("/health", pbftServer.handleHealth).Methods("GET")
+
 	// Add CORS middleware
 	handler := server.CorsMiddleware(r)
 
@@ -188,6 +192,8 @@ func (s *PBFTServer) handleStartConsensus(w http.ResponseWriter, r *http.Request
 		Nonce:        0,
 	}
 
+	newBlock.Hash = newBlock.ComputeHash()
+
 	// Start PBFT consensus for this block
 	if err := s.node.StartConsensus(newBlock); err != nil {
 		http.Error(w, fmt.Sprintf("Failed to start consensus: %v", err), http.StatusInternalServerError)
@@ -237,6 +243,11 @@ func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 					Nonce:        0,
 				}
 
+				newBlock.Hash = newBlock.ComputeHash()
+
+				log.Printf("Node %s: Starting consensus for block #%d with %d transactions",
+					*nodeID, newBlock.Index, len(pendingTxs))
+
 				s.node.StartConsensus(newBlock)
 			}
 		}()
@@ -272,4 +283,52 @@ func (s *PBFTServer) handleTally(w http.ResponseWriter, r *http.Request) {
 func (s *PBFTServer) handleGetBlockchain(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(s.blockchain)
+}
+
+func (s *PBFTServer) handleGetGenesis(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if len(s.blockchain.Blocks) == 0 {
+		http.Error(w, "No genesis block found", http.StatusNotFound)
+		return
+	}
+
+	genesisBlock := s.blockchain.Blocks[0]
+	response := map[string]interface{}{
+		"hash":      genesisBlock.Hash,
+		"height":    genesisBlock.Index,
+		"timestamp": genesisBlock.Timestamp,
+		"prev_hash": genesisBlock.PrevHash,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *PBFTServer) handleGetBlockchainState(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	var blockHashes []string
+	for _, block := range s.blockchain.Blocks {
+		blockHashes = append(blockHashes, block.Hash)
+	}
+
+	lastHash := ""
+	if len(s.blockchain.Blocks) > 0 {
+		lastHash = s.blockchain.Blocks[len(s.blockchain.Blocks)-1].Hash
+	}
+
+	response := map[string]interface{}{
+		"height":       len(s.blockchain.Blocks),
+		"last_hash":    lastHash,
+		"block_hashes": blockHashes,
+		"node_id":      *nodeID,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func (s *PBFTServer) handleHealth(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "healthy"})
 }

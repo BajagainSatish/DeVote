@@ -205,9 +205,23 @@ func (n *PBFTNode) handlePrePrepare(msg PBFTMessage) error {
 
 	log.Printf("Node %s: Received PRE-PREPARE for block %s", n.ID, msg.BlockHash[:8])
 
-	// Validate the block (basic validation)
 	if msg.BlockData == "" || msg.BlockHash == "" {
 		return fmt.Errorf("invalid PRE-PREPARE message")
+	}
+
+	// Parse and validate block structure
+	var blockData map[string]interface{}
+	if err := json.Unmarshal([]byte(msg.BlockData), &blockData); err != nil {
+		log.Printf("Node %s: Invalid block data in PRE-PREPARE: %v", n.ID, err)
+		return fmt.Errorf("invalid block data")
+	}
+
+	// Validate block hash matches the data
+	hash := sha256.Sum256([]byte(msg.BlockData))
+	expectedHash := hex.EncodeToString(hash[:])
+	if expectedHash != msg.BlockHash {
+		log.Printf("Node %s: Block hash mismatch in PRE-PREPARE", n.ID)
+		return fmt.Errorf("block hash mismatch")
 	}
 
 	// Send PREPARE message
@@ -222,6 +236,8 @@ func (n *PBFTNode) handlePrePrepare(msg PBFTMessage) error {
 
 	n.State = StatePrepare
 	n.SequenceNum = msg.SequenceNum
+
+	log.Printf("Node %s: Block validated, sending PREPARE", n.ID)
 
 	// Broadcast PREPARE to all peers
 	go n.broadcastMessage(prepareMsg)

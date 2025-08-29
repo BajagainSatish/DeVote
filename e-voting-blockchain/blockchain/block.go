@@ -58,6 +58,12 @@ func (b *Block) calculateHash() string {
 	return hex.EncodeToString(hash[:])
 }
 
+// ComputeHash is a wrapper for GenerateHash that returns the hash
+func (b *Block) ComputeHash() string {
+	b.GenerateHash()
+	return b.Hash
+}
+
 // TransactionData combines all transaction info into a single string.
 // This is used as part of the data to generate the block's hash.
 func (b *Block) TransactionData() string {
