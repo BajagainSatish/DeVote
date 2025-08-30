@@ -26,6 +26,11 @@ func SetupRoutes() http.Handler {
 	r.HandleFunc("/blockchain", getBlockchainHandler).Methods("GET")
 	r.HandleFunc("/admin/registered-voters/{voterID}", HandleDeleteRegisteredVoter).Methods("DELETE") //route to delete a specific registered voter by VoterID was missing
 
+	
+	//to reset password of a registered user
+	r.HandleFunc("/forgot-password", HandleForgotPassword).Methods("POST")
+	r.HandleFunc("/reset-password", HandleResetPassword).Methods("POST")
+	
 	// Admin-only routes with OPTIONS support
 	admin := r.PathPrefix("/admin").Subrouter()
 	admin.Use(AuthMiddleware)

@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard";
 import Results from "./pages/Results";
 import BlockchainExplorer from "./pages/BlockchainExplorer";
 import RegistrationResult from "./pages/RegistrationResult";
+import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
 
 function App() {
   return (
@@ -22,6 +24,8 @@ function App() {
       <Route path="/dashboard" element={<Dashboard />} />
       <Route path="/results" element={<Results />} />
       <Route path="/blockchain" element={<BlockchainExplorer />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password/:token" element={<ResetPassword />} />
     </Routes>
   );
 }
