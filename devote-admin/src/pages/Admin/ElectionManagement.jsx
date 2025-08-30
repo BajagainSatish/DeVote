@@ -50,6 +50,9 @@ export default function ElectionManagement() {
       // Remove all voting records
       keysToRemove.forEach((key) => localStorage.removeItem(key))
 
+      localStorage.removeItem("currentElectionId")
+      localStorage.removeItem("serverVotingStatus")
+
       toast.success("Election started successfully - All voting records have been reset")
       setShowStartForm(false)
       fetchData()

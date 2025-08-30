@@ -291,7 +291,11 @@ class VotingApiService {
             return stats
         } catch (error) {
             console.error("Failed to fetch voting stats:", error)
-            throw error
+            return {
+                totalVotes: 0,
+                candidates: [],
+                status: "unavailable",
+            }
         }
     }
 
@@ -328,6 +332,27 @@ class VotingApiService {
         } catch (error) {
             console.error("Failed to get user voting status:", error)
             throw error
+        }
+    }
+
+    async getUserVotingStatusForCurrentElection(voterID) {
+        try {
+            const status = await this.request(`/voter/${voterID}/current-election-status`)
+            return status
+        } catch (error) {
+            console.error("Failed to get user voting status for current election:", error)
+            // Return default status if server call fails
+            return { hasVoted: false, electionId: null }
+        }
+    }
+
+    async getCurrentElectionId() {
+        try {
+            const status = await this.getElectionStatus()
+            return status?.status?.electionId || status?.status?.startTime || null
+        } catch (error) {
+            console.error("Failed to get current election ID:", error)
+            return null
         }
     }
 

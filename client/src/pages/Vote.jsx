@@ -1,7 +1,5 @@
-//client/src/pages/Vote.jsx
-
+;("use client")
 import React from "react"
-"use client"
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { UseAuth } from "../context/AuthContext"
@@ -20,6 +18,7 @@ const Vote = () => {
   const [submitting, setSubmitting] = useState(false)
   const [electionStatus, setElectionStatus] = useState(null)
   const [filterParty, setFilterParty] = useState("all")
+  const [currentElectionId, setCurrentElectionId] = useState(null)
 
   useEffect(() => {
     if (!username) {
@@ -42,10 +41,30 @@ const Vote = () => {
       setParties(partiesData || [])
       setElectionStatus(statusData)
 
-      // Check if user has already voted
-      const votedStatus = localStorage.getItem(`voted_${username}`)
-      if (votedStatus) {
-        setMessage("You have already cast your vote in this election.")
+      const electionId = statusData?.status?.electionId || statusData?.status?.startTime
+      setCurrentElectionId(electionId)
+
+      if (username && electionId) {
+        try {
+          const voterID = username.replace("voter_", "")
+          const serverStatus = await VotingApiService.getUserVotingStatusForCurrentElection(voterID)
+
+          const hasVotedInCurrentElection = serverStatus?.hasVoted || false
+
+          const localVotedKey = `voted_${username}_${electionId}`
+          const localVotedStatus = localStorage.getItem(localVotedKey)
+
+          if (hasVotedInCurrentElection || localVotedStatus) {
+            setMessage("You have already cast your vote in this election.")
+          }
+        } catch (error) {
+          console.warn("Could not check server voting status, falling back to localStorage:", error)
+          const localVotedKey = `voted_${username}_${electionId}`
+          const localVotedStatus = localStorage.getItem(localVotedKey)
+          if (localVotedStatus) {
+            setMessage("You have already cast your vote in this election.")
+          }
+        }
       }
     } catch (err) {
       setMessage("Failed to load voting data: " + err.message)
@@ -65,8 +84,21 @@ const Vote = () => {
       return
     }
 
-    const hasVoted = localStorage.getItem(`voted_${username}`)
-    if (hasVoted) {
+    const voterID = username.replace("voter_", "")
+    const electionId = currentElectionId
+
+    let hasVoted = false
+    try {
+      const serverStatus = await VotingApiService.getUserVotingStatusForCurrentElection(voterID)
+      hasVoted = serverStatus?.hasVoted || false
+    } catch (error) {
+      console.warn("Could not check server voting status, checking localStorage:", error)
+    }
+
+    const localVotedKey = `voted_${username}_${electionId}`
+    const localVotedStatus = localStorage.getItem(localVotedKey)
+
+    if (hasVoted || localVotedStatus) {
       setMessage("You have already voted in this election.")
       return
     }
@@ -75,13 +107,10 @@ const Vote = () => {
     setMessage("")
 
     try {
-      // Extract voter ID from username (remove "voter_" prefix)
-      const voterID = username.replace("voter_", "")
-
       const payload = {
         voterID: voterID,
         candidateID: selectedId,
-        name: "", // Backend will fetch these from registered users
+        name: "",
         dob: "",
       }
 
@@ -89,13 +118,20 @@ const Vote = () => {
 
       await VotingApiService.castVote(payload)
 
-      // Mark as voted in localStorage
-      localStorage.setItem(`voted_${username}`, "true")
+      localStorage.setItem(localVotedKey, "true")
+
+      const keysToRemove = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith(`voted_${username}_`) && key !== localVotedKey) {
+          keysToRemove.push(key)
+        }
+      }
+      keysToRemove.forEach((key) => localStorage.removeItem(key))
 
       setMessage("Vote cast successfully! Thank you for participating.")
-      setSelectedId("") // Clear selection
+      setSelectedId("")
 
-      // Redirect to dashboard after a delay
       setTimeout(() => {
         navigate("/dashboard")
       }, 3000)
@@ -103,7 +139,6 @@ const Vote = () => {
       console.error("Vote error:", err)
       setMessage(`Failed to cast vote: ${err.message}`)
 
-      // If it's an authorization error, suggest re-login
       if (err.message.includes("Unauthorized") || err.message.includes("Invalid voter details")) {
         setMessage(`Failed to cast vote: ${err.message}. Please try logging out and logging in again.`)
       }
@@ -147,7 +182,6 @@ const Vote = () => {
           <p className="text-sm text-gray-500 mt-2">Logged in as: {username}</p>
         </div>
 
-        {/* Election Status Alert */}
         {electionStatus && (
           <div
             className={`mb-6 p-4 rounded-lg ${
@@ -169,7 +203,6 @@ const Vote = () => {
           </div>
         )}
 
-        {/* Message Display */}
         {message && (
           <div
             className={`mb-6 p-4 rounded-lg ${
@@ -182,7 +215,6 @@ const Vote = () => {
           </div>
         )}
 
-        {/* Debug Info */}
         <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h3 className="font-medium text-blue-800 mb-2">Debug Information:</h3>
           <p className="text-sm text-blue-700">Username: {username}</p>
@@ -191,7 +223,6 @@ const Vote = () => {
           <p className="text-sm text-blue-700">Candidates Loaded: {candidates.length}</p>
         </div>
 
-        {/* Party Filter */}
         {parties.length > 0 && (
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Party:</label>
@@ -210,7 +241,6 @@ const Vote = () => {
           </div>
         )}
 
-        {/* Candidates Grid */}
         {filteredCandidates.length > 0 ? (
           <div className="grid gap-4 mb-8">
             {filteredCandidates.map((candidate) => (
@@ -224,7 +254,6 @@ const Vote = () => {
                 }`}
               >
                 <div className="flex items-start space-x-4">
-                  {/* Candidate Image */}
                   <div className="flex-shrink-0">
                     {candidate.imageUrl ? (
                       <img
@@ -239,14 +268,12 @@ const Vote = () => {
                     )}
                   </div>
 
-                  {/* Candidate Info */}
                   <div className="flex-grow">
                     <div className="flex items-center space-x-3 mb-2">
                       <h3 className="text-xl font-semibold text-gray-800">{candidate.name}</h3>
                       {candidate.age && <span className="text-sm text-gray-500">Age: {candidate.age}</span>}
                     </div>
 
-                    {/* Party Info */}
                     <div className="flex items-center space-x-2 mb-3">
                       <div
                         className="w-4 h-4 rounded-full"
@@ -255,10 +282,8 @@ const Vote = () => {
                       <span className="text-sm font-medium text-gray-700">{getPartyName(candidate.partyId)}</span>
                     </div>
 
-                    {/* Bio */}
                     {candidate.bio && <p className="text-gray-600 mb-3">{candidate.bio}</p>}
 
-                    {/* Selection Indicator */}
                     {selectedId === candidate.candidateId && (
                       <div className="flex items-center space-x-2">
                         <div className="w-5 h-5 bg-[#21978B] rounded-full flex items-center justify-center">
@@ -288,7 +313,6 @@ const Vote = () => {
           </div>
         )}
 
-        {/* Vote Button */}
         {filteredCandidates.length > 0 && (
           <div className="text-center">
             <button
