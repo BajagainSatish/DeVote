@@ -19,6 +19,23 @@ const RegistrationResult = () => {
     }
   };
 
+  const trimErrorMessage = (message) => {
+  if (typeof message === 'string') {
+    try {
+      // Try to parse the string as JSON
+      const parsed = JSON.parse(message);
+      return parsed.error || message;
+    } catch {
+      // If it's not valid JSON, return the original string
+      return message;
+    }
+  } else if (message && typeof message === 'object') {
+    // Handle object with error property
+    return message.error || "Something went wrong.";
+  }
+  return "Something went wrong.";
+};
+
   return (
     <div className="min-h-screen flex flex-col justify-between bg-[#F4F3F2]">
       <Navbar />
@@ -79,7 +96,9 @@ const RegistrationResult = () => {
               <h2 className="text-2xl font-bold text-red-600 mb-4">
                 Registration Failed
               </h2>
-              <p>{message || "Something went wrong."}</p>
+              <p className="text-gray-700">
+                  {trimErrorMessage(message)}
+              </p>
               <button
                 onClick={() => navigate("/register")}
                 className="mt-4 bg-[#21978B] text-white py-2 px-4 rounded-md hover:bg-[#1a7a70] transition"

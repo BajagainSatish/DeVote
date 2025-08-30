@@ -8,7 +8,7 @@
       "partyName": "UML",
       "age": 77,
       "imageUrl": "https://th-i.thgim.com/public/news/international/iig8wn/article31878366.ece/alternates/BASE_SQUARE/TH21sharma-oliArt",
-      "votes": 1
+      "votes": 0
     },
     "prachanda404": {
       "candidateId": "prachanda404",
@@ -28,7 +28,7 @@
       "partyName": "Nepali Congress",
       "age": 74,
       "imageUrl": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiSnsRpnUkXRwKeDmTg71lQbuJ2kxcAdBl4KIEekjHHem72i2G2cfwweC2JevQGtuiEzU_S3Kd_AaeCKXq8Mrq3zKLFM0epFrEGZkh1tkMqsdiZ4McHVmR3xk7DXfr9CoiLMxxoC5fMqeS2qA69Ack2AS9T2xa9JCqPQzzKTAO0oRmItQHCBtQ/s600/deubaaaaaaa.jpg",
-      "votes": 0
+      "votes": 1
     }
   },
   "voters": {
@@ -57,8 +57,8 @@
   },
   "status": {
     "isActive": true,
-    "startTime": "2025-08-30T23:17:38.7178119+05:45",
-    "endTime": "2025-08-31T23:17:38.7178119+05:45",
-    "description": "demo demo"
+    "startTime": "2025-08-31T00:33:51.6198258+05:45",
+    "endTime": "2025-09-01T00:33:51.6198258+05:45",
+    "description": "asdf"
   }
 }
