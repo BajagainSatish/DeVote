@@ -13,7 +13,7 @@ const VotingFlowDiagram = () => {
         {/* Complete Method Flow */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-2xl font-bold mb-6">
-            Complete Method Flow (Button Press → Blockchain)
+            Complete Method Flow
           </h2>
 
           <div className="space-y-6">
