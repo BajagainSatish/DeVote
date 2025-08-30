@@ -485,7 +485,15 @@ func HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.Password = req.NewPassword
+	// --- Hash the new password ---
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to hash new password"})
+		return
+	}
+
+	user.Password = string(hashedPassword)
 	user.ResetToken = ""
 	user.ResetTokenExpiry = time.Time{}
 
@@ -495,7 +503,7 @@ func HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// send confirmation email
+	// send confirmation email (Mailtrap)
 	smtpHost := "sandbox.smtp.mailtrap.io"
 	smtpPort := "2525"
 	smtpUser := "022d81c9828f4a"

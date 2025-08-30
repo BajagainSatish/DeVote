@@ -29,7 +29,7 @@
   },
   {
     "username": "voter_v6",
-    "password": "$2a$10$ra9THO.RGC5bvV1cPbgL3OOm09QEKqcz0U/4QP6zYkobAq3GyFDw6",
+    "password": "$2a$10$Mu.zguJmcJjzA2aSPX47iesUXyF/P1dPfjm4llTffGpvcvw7LnQeO",
     "voterId": "v6",
     "email": "satish@gmail.com",
     "resetTokenExpiry": "0001-01-01T00:00:00Z"
