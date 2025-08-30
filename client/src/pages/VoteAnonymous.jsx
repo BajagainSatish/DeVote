@@ -28,6 +28,7 @@ const VoteAnonymous = () => {
   const [votingProcess, setVotingProcess] = useState([])
   const [zkService] = useState(new ZKVotingService())
   const [voteResult, setVoteResult] = useState(null)
+  const [hasVoted, setHasVoted] = useState(false) // New state to track if user has voted
 
   useEffect(() => {
     if (!username) {
@@ -35,27 +36,7 @@ const VoteAnonymous = () => {
       return
     }
     loadVotingData()
-    // Load persisted vote result if exists
-    loadPersistedVoteResult()
   }, [username, navigate])
-
-  const loadPersistedVoteResult = () => {
-    if (!username || !currentElectionId) return
-    
-    const persistKey = `anonymous_vote_result_${username}_${currentElectionId}`
-    const persistedResult = localStorage.getItem(persistKey)
-    
-    if (persistedResult) {
-      try {
-        const parsedResult = JSON.parse(persistedResult)
-        setVoteResult(parsedResult)
-        setVotingStep("complete")
-        setSelectedId(parsedResult.selectedCandidateId)
-      } catch (error) {
-        console.error("Failed to load persisted vote result:", error)
-      }
-    }
-  }
 
   const loadVotingData = async () => {
     try {
@@ -73,28 +54,38 @@ const VoteAnonymous = () => {
       const electionId = statusData?.status?.electionId || statusData?.status?.startTime
       setCurrentElectionId(electionId)
 
+      // Check if user has already voted in this election
       if (username && electionId) {
-        try {
-          const voterID = username.replace("voter_", "")
-          const serverStatus = await VotingApiService.getUserVotingStatusForCurrentElection(voterID)
-
-          const hasVotedInCurrentElection = serverStatus?.hasVoted || false
-
-          const localVotedKey = `voted_${username}_${electionId}`
-          const localVotedStatus = localStorage.getItem(localVotedKey)
-
-          if (hasVotedInCurrentElection || localVotedStatus) {
-            setMessage("You have already cast your vote in this election.")
-            // Also check for persisted anonymous vote result
-            loadPersistedVoteResult()
+        const persistKey = `anonymous_vote_result_${username}_${electionId}`
+        const persistedResult = localStorage.getItem(persistKey)
+        
+        if (persistedResult) {
+          try {
+            const parsedResult = JSON.parse(persistedResult)
+            setVoteResult(parsedResult)
+            setSelectedId(parsedResult.selectedCandidateId)
+            setHasVoted(true)
+            setVotingStep("complete")
+          } catch (error) {
+            console.error("Failed to parse persisted vote result:", error)
+            localStorage.removeItem(persistKey)
           }
-        } catch (error) {
-          console.warn("Could not check server voting status, falling back to localStorage:", error)
-          const localVotedKey = `voted_${username}_${electionId}`
-          const localVotedStatus = localStorage.getItem(localVotedKey)
-          if (localVotedStatus) {
-            setMessage("You have already cast your vote in this election.")
-            loadPersistedVoteResult()
+        } else {
+          // If no persisted result, check server status
+          try {
+            const voterID = username.replace("voter_", "")
+            const serverStatus = await VotingApiService.getUserVotingStatusForCurrentElection(voterID)
+            const hasVotedInCurrentElection = serverStatus?.hasVoted || false
+
+            const localVotedKey = `voted_${username}_${electionId}`
+            const localVotedStatus = localStorage.getItem(localVotedKey)
+
+            if (hasVotedInCurrentElection || localVotedStatus) {
+              setMessage("You have already cast your vote in this election.")
+              setHasVoted(true)
+            }
+          } catch (error) {
+            console.warn("Could not check server voting status:", error)
           }
         }
       }
@@ -163,24 +154,13 @@ const VoteAnonymous = () => {
       return
     }
 
-    const voterID = username.replace("voter_", "")
-    const electionId = currentElectionId
-
-    let hasVoted = false
-    try {
-      const serverStatus = await VotingApiService.getUserVotingStatusForCurrentElection(voterID)
-      hasVoted = serverStatus?.hasVoted || false
-    } catch (error) {
-      console.warn("Could not check server voting status, checking localStorage:", error)
-    }
-
-    const localVotedKey = `voted_${username}_${electionId}`
-    const localVotedStatus = localStorage.getItem(localVotedKey)
-
-    if (hasVoted || localVotedStatus) {
+    if (hasVoted) {
       setMessage("You have already voted in this election.")
       return
     }
+
+    const voterID = username.replace("voter_", "")
+    const electionId = currentElectionId
 
     setSubmitting(true)
     setVotingStep("processing")
@@ -193,21 +173,19 @@ const VoteAnonymous = () => {
       await delay(1000)
       const blindSignatureRequest = await zkService.requestBlindSignature()
 
-      // Step 2: Generate Zero-Knowledge Proof
-      addProcessStep("🧮 Step 2: Zero-Knowledge Proof", "Proving vote validity without revealing choice")
       await delay(800)
       const zkProof = zkService.generateValidityProof(
         selectedId,
         candidates.map((c) => c.candidateId),
       )
 
-      // Step 3: Create Anonymous Vote Commitment
-      addProcessStep("🎭 Step 3: Vote Commitment", "Creating cryptographic commitment to hide vote content")
+      // Step 2: Create Anonymous Vote Commitment
+      addProcessStep("🎭 Step 2: Vote Commitment", "Creating cryptographic commitment to hide vote content")
       await delay(1200)
       const commitment = zkService.createCommitment(selectedId)
 
-      // Step 4: Submit Regular Vote (from Vote.jsx logic)
-      addProcessStep("🗳️ Step 4: Submitting Vote", "Casting vote through regular API")
+      // Step 3: Submit Regular Vote (from Vote.jsx logic)
+      addProcessStep("🗳️ Step 3: Submitting Vote", "Casting vote through regular API")
       await delay(1000)
       
       const payload = {
@@ -220,21 +198,22 @@ const VoteAnonymous = () => {
       console.log("Sending vote payload:", payload)
       await VotingApiService.castVote(payload)
 
-      // Step 5: Create Anonymous Vote (from AnonymousVote.jsx logic)
-      addProcessStep("🎭 Step 5: Anonymous Processing", "Processing anonymous vote with ZK proofs")
+      // Step 4: Create Anonymous Vote (from AnonymousVote.jsx logic)
+      addProcessStep("🎭 Step 4: Anonymous Processing", "Processing anonymous vote with ZK proofs")
       await delay(1000)
       const anonymousResult = await zkService.castAnonymousVote(selectedId)
 
       // Step 6: Fetch actual transaction from blockchain
-      addProcessStep("🔍 Step 6: Fetching Transaction", "Retrieving transaction details from blockchain")
+      // addProcessStep("🔍 Step 6: Fetching Transaction", "Retrieving transaction details from blockchain")
       await delay(1000)
       const blockchainTransaction = await fetchTransactionFromBlockchain(selectedId, voterID)
 
-      // Step 7: Blockchain Recording
-      addProcessStep("⛓️ Step 7: Blockchain Recording", "Recording anonymous transaction on blockchain")
+      // Step 6: Blockchain Recording
+      addProcessStep("⛓️ Step 6: Blockchain Recording", "Recording anonymous transaction on blockchain")
       await delay(800)
 
       // Store voting status
+      const localVotedKey = `voted_${username}_${electionId}`
       localStorage.setItem(localVotedKey, "true")
 
       const keysToRemove = []
@@ -268,6 +247,7 @@ const VoteAnonymous = () => {
       }
 
       setVoteResult(finalVoteResult)
+      setHasVoted(true)
 
       // Persist the vote result so it doesn't disappear on tab switch
       const persistKey = `anonymous_vote_result_${username}_${electionId}`
@@ -303,25 +283,6 @@ const VoteAnonymous = () => {
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
 
-  const resetVoting = () => {
-    setVotingStep("select")
-    setSelectedId("")
-    setVotingProcess([])
-    setVoteResult(null)
-    setMessage("")
-    
-    // Clear persisted vote result
-    if (username && currentElectionId) {
-      const persistKey = `anonymous_vote_result_${username}_${currentElectionId}`
-      localStorage.removeItem(persistKey)
-    }
-  }
-
-  const viewInBlockchainExplorer = () => {
-    // Navigate to blockchain explorer
-    navigate("/blockchain")
-  }
-
   const filteredCandidates = filterParty === "all" ? candidates : candidates.filter((c) => c.partyId === filterParty)
 
   const getPartyColor = (partyId) => {
@@ -353,9 +314,9 @@ const VoteAnonymous = () => {
       <div className="max-w-6xl mx-auto px-6 py-8">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">🎭 Anonymous Voting System</h1>
+          <h1 className="text-4xl font-bold text-gray-909 mb-4">🎭 Anonymous Voting System</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Experience true voter anonymity with RSA blind signatures, zero-knowledge proofs, and anonymous blockchain
+            Experience true voter anonymity with RSA blind signatures and anonymous blockchain
             transactions
           </p>
         </div>
@@ -372,19 +333,6 @@ const VoteAnonymous = () => {
             </p>
             <p className="text-sm text-gray-600">
               <strong>User sees:</strong> Blind signature hash in voting receipt
-            </p>
-          </div>
-
-          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
-            <h3 className="font-bold text-green-700 mb-2">🧮 Zero-Knowledge Proof</h3>
-            <p className="text-sm text-gray-600 mb-2">
-              <strong>What it does:</strong> Proves vote is valid without revealing the choice
-            </p>
-            <p className="text-sm text-gray-600 mb-2">
-              <strong>Output:</strong> Cryptographic proof hash that validates vote legitimacy
-            </p>
-            <p className="text-sm text-gray-600">
-              <strong>User sees:</strong> ZK proof hash in voting receipt
             </p>
           </div>
 
@@ -435,146 +383,10 @@ const VoteAnonymous = () => {
           </div>
         )}
 
-        {/* Candidate Selection (only show when in select step) */}
-        {votingStep === "select" && (
-          <>
-            {parties.length > 0 && (
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Party:</label>
-                <select
-                  value={filterParty}
-                  onChange={(e) => setFilterParty(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#21978B]"
-                >
-                  <option value="all">All Parties</option>
-                  {parties.map((party) => (
-                    <option key={party.id} value={party.id}>
-                      {party.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            {filteredCandidates.length > 0 ? (
-              <div className="grid gap-4 mb-8">
-                {filteredCandidates.map((candidate) => (
-                  <div
-                    key={candidate.candidateId}
-                    onClick={() => setSelectedId(candidate.candidateId)}
-                    className={`p-6 rounded-lg border-2 transition duration-200 cursor-pointer shadow-sm hover:shadow-md ${
-                      selectedId === candidate.candidateId
-                        ? "border-[#21978B] bg-[#e6f6f4]"
-                        : "border-gray-300 bg-white hover:border-gray-400"
-                    }`}
-                  >
-                    <div className="flex items-start space-x-4">
-                      <div className="flex-shrink-0">
-                        {candidate.imageUrl ? (
-                          <img
-                            src={candidate.imageUrl || "/placeholder.svg"}
-                            alt={candidate.name}
-                            className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
-                          />
-                        ) : (
-                          <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
-                            <span className="text-2xl font-bold text-gray-500">{candidate.name.charAt(0)}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-grow">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <h3 className="text-xl font-semibold text-gray-800">{candidate.name}</h3>
-                          {candidate.age && <span className="text-sm text-gray-500">Age: {candidate.age}</span>}
-                        </div>
-
-                        <div className="flex items-center space-x-2 mb-3">
-                          <div
-                            className="w-4 h-4 rounded-full"
-                            style={{ backgroundColor: getPartyColor(candidate.partyId) }}
-                          ></div>
-                          <span className="text-sm font-medium text-gray-700">{getPartyName(candidate.partyId)}</span>
-                        </div>
-
-                        {candidate.bio && <p className="text-gray-600 mb-3">{candidate.bio}</p>}
-
-                        {selectedId === candidate.candidateId && (
-                          <div className="flex items-center space-x-2">
-                            <div className="w-5 h-5 bg-[#21978B] rounded-full flex items-center justify-center">
-                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                <path
-                                  fillRule="evenodd"
-                                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            </div>
-                            <span className="text-sm text-[#21978B] font-medium">Selected</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <p className="text-gray-500 text-lg">
-                  {filterParty === "all"
-                    ? "No candidates available for this election."
-                    : "No candidates found for the selected party."}
-                </p>
-              </div>
-            )}
-
-            {filteredCandidates.length > 0 && (
-              <div className="text-center">
-                <button
-                  onClick={handleAnonymousVote}
-                  disabled={!selectedId || submitting || !electionStatus?.isActive}
-                  className={`px-8 py-3 rounded-md font-semibold transition ${
-                    selectedId && !submitting && electionStatus?.isActive
-                      ? "bg-blue-600 text-white hover:bg-blue-700"
-                      : "bg-gray-300 text-gray-500 cursor-not-allowed"
-                  }`}
-                >
-                  {submitting ? "Processing Anonymous Vote..." : "🎭 Cast Anonymous Vote"}
-                </button>
-
-                {selectedId && (
-                  <p className="text-sm text-gray-600 mt-2">
-                    You have selected: <strong>{candidates.find((c) => c.candidateId === selectedId)?.name}</strong>
-                  </p>
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Processing Steps */}
-        {votingStep === "processing" && (
+        {/* Show receipt if user has voted */}
+        {hasVoted && voteResult && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-2xl font-bold mb-4">Processing Anonymous Vote</h2>
-            <div className="space-y-4">
-              {votingProcess.map((step, index) => (
-                <div key={index} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                  <div className="text-2xl">{step.title.split(" ")[0]}</div>
-                  <div className="flex-1">
-                    <div className="font-medium text-gray-900">{step.title.substring(step.title.indexOf(" ") + 1)}</div>
-                    <div className="text-sm text-gray-600">{step.description}</div>
-                    <div className="text-xs text-gray-400 mt-1">{step.timestamp}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Vote Complete with Detailed Receipt */}
-        {votingStep === "complete" && voteResult && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 className="text-2xl font-bold text-green-600 mb-4">✅ Anonymous Vote Successfully Cast!</h2>
+            <h2 className="text-2xl font-bold text-green-600 mb-4">✅ Your Vote Has Been Recorded!</h2>
 
             <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
               <h3 className="text-lg font-bold text-green-800 mb-4">🎫 Your Anonymous Voting Receipt</h3>
@@ -583,11 +395,6 @@ const VoteAnonymous = () => {
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                <div className="bg-white p-3 rounded border">
-                  <span className="font-semibold text-green-700">Voter Token:</span>
-                  <p className="font-mono text-xs text-gray-600 mt-1 break-all">{voteResult.voterReceipt.voterToken}</p>
-                  <p className="text-xs text-green-600 mt-1">Use this to verify you voted</p>
-                </div>
 
                 <div className="bg-white p-3 rounded border">
                   <span className="font-semibold text-green-700">Transaction ID:</span>
@@ -596,22 +403,6 @@ const VoteAnonymous = () => {
                   {voteResult.blockIndex !== undefined && (
                     <p className="text-xs text-gray-500 mt-1">Block #{voteResult.blockIndex}</p>
                   )}
-                </div>
-
-                <div className="bg-white p-3 rounded border">
-                  <span className="font-semibold text-green-700">ZK Proof Hash:</span>
-                  <p className="font-mono text-xs text-gray-600 mt-1 break-all">
-                    {voteResult.voterReceipt.zkProofHash}
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">Proves vote validity</p>
-                </div>
-
-                <div className="bg-white p-3 rounded border">
-                  <span className="font-semibold text-green-700">Blind Signature Hash:</span>
-                  <p className="font-mono text-xs text-gray-600 mt-1 break-all">
-                    {voteResult.voterReceipt.blindSignatureHash}
-                  </p>
-                  <p className="text-xs text-green-600 mt-1">Proves vote authenticity</p>
                 </div>
               </div>
 
@@ -636,32 +427,162 @@ const VoteAnonymous = () => {
                 <ol className="text-sm text-blue-700 space-y-1">
                   <li>1. Go to Blockchain Explorer</li>
                   <li>2. Search for your Transaction ID</li>
-                  <li>3. Verify the transaction shows "🎭 Anonymous" (not your name)</li>
+                  <li>3. Verify the transaction shows "Anonymous" (not your name)</li>
                   <li>4. Check that the candidate matches your choice</li>
                   <li>5. Confirm timestamp matches when you voted</li>
                 </ol>
               </div>
             </div>
+          </div>
+        )}
 
-            <div className="flex gap-4">
-              <button
-                onClick={resetVoting}
-                className="flex-1 py-2 px-4 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+        {/* Candidate Selection - Always show but disable if already voted */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h2 className="text-2xl font-bold mb-4">
+            {hasVoted ? "You Have Already Voted" : "Select Your Candidate"}
+          </h2>
+          
+          {hasVoted && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-4">
+              <div className="flex">
+                <div className="ml-3">
+                  <p className="text-sm text-yellow-700">
+                    You have already cast your vote. You can view your receipt above or wait for next election to start.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {parties.length > 0 && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Party:</label>
+              <select
+                value={filterParty}
+                onChange={(e) => setFilterParty(e.target.value)}
+                disabled={hasVoted}
+                className="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#21978B] disabled:opacity-50"
               >
-                Vote Again (Demo)
-              </button>
+                <option value="all">All Parties</option>
+                {parties.map((party) => (
+                  <option key={party.id} value={party.id}>
+                    {party.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {filteredCandidates.length > 0 ? (
+            <div className="grid gap-4 mb-8">
+              {filteredCandidates.map((candidate) => (
+                <div
+                  key={candidate.candidateId}
+                  onClick={() => !hasVoted && setSelectedId(candidate.candidateId)}
+                  className={`p-6 rounded-lg border-2 transition duration-200 cursor-pointer shadow-sm hover:shadow-md ${
+                    selectedId === candidate.candidateId
+                      ? "border-[#21978B] bg-[#e6f6f4]"
+                      : "border-gray-300 bg-white hover:border-gray-400"
+                  } ${hasVoted ? "opacity-50 cursor-not-allowed" : ""}`}
+                >
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0">
+                      {candidate.imageUrl ? (
+                        <img
+                          src={candidate.imageUrl || "/placeholder.svg"}
+                          alt={candidate.name}
+                          className="w-20 h-20 rounded-full object-cover border-2 border-gray-200"
+                        />
+                      ) : (
+                        <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center">
+                          <span className="text-2xl font-bold text-gray-500">{candidate.name.charAt(0)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex-grow">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h3 className="text-xl font-semibold text-gray-800">{candidate.name}</h3>
+                        {candidate.age && <span className="text-sm text-gray-500">Age: {candidate.age}</span>}
+                      </div>
+
+                      <div className="flex items-center space-x-2 mb-3">
+                        <div
+                          className="w-4 h-4 rounded-full"
+                          style={{ backgroundColor: getPartyColor(candidate.partyId) }}
+                        ></div>
+                        <span className="text-sm font-medium text-gray-700">{getPartyName(candidate.partyId)}</span>
+                      </div>
+
+                      {candidate.bio && <p className="text-gray-600 mb-3">{candidate.bio}</p>}
+
+                      {selectedId === candidate.candidateId && (
+                        <div className="flex items-center space-x-2">
+                          <div className="w-5 h-5 bg-[#21978B] rounded-full flex items-center justify-center">
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path
+                                fillRule="evenodd"
+                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </div>
+                          <span className="text-sm text-[#21978B] font-medium">Selected</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">
+                {filterParty === "all"
+                  ? "No candidates available for this election."
+                  : "No candidates found for the selected party."}
+              </p>
+            </div>
+          )}
+
+          {filteredCandidates.length > 0 && (
+            <div className="text-center">
               <button
-                onClick={viewInBlockchainExplorer}
-                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                onClick={handleAnonymousVote}
+                disabled={!selectedId || submitting || !electionStatus?.isActive || hasVoted}
+                className={`px-8 py-3 rounded-md font-semibold transition ${
+                  selectedId && !submitting && electionStatus?.isActive && !hasVoted
+                    ? "bg-blue-600 text-white hover:bg-blue-700"
+                    : "bg-gray-300 text-gray-500 cursor-not-allowed"
+                }`}
               >
-                View in Blockchain Explorer
+                {hasVoted ? "Already Voted" : submitting ? "Processing Anonymous Vote..." : "🎭 Cast Anonymous Vote"}
               </button>
-              <button
-                onClick={() => navigate("/dashboard")}
-                className="flex-1 py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 transition"
-              >
-                Return to Dashboard
-              </button>
+
+              {selectedId && !hasVoted && (
+                <p className="text-sm text-gray-600 mt-2">
+                  You have selected: <strong>{candidates.find((c) => c.candidateId === selectedId)?.name}</strong>
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Processing Steps */}
+        {votingStep === "processing" && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 className="text-2xl font-bold mb-4">Processing Anonymous Vote</h2>
+            <div className="space-y-4">
+              {votingProcess.map((step, index) => (
+                <div key={index} className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                  <div className="text-2xl">{step.title.split(" ")[0]}</div>
+                  <div className="flex-1">
+                    <div className="font-medium text-gray-900">{step.title.substring(step.title.indexOf(" ") + 1)}</div>
+                    <div className="text-sm text-gray-600">{step.description}</div>
+                    <div className="text-xs text-gray-400 mt-1">{step.timestamp}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

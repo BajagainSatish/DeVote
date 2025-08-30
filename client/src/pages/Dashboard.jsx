@@ -35,7 +35,7 @@ const Dashboard = () => {
         VotingApiService.getElectionStatus(),
         VotingApiService.getCandidates(),
         VotingApiService.getParties(),
-        VotingApiService.getElectionResults(), // This includes statistics
+        VotingApiService.getElectionResults(),
       ])
 
       setElectionStatus(statusData)
@@ -43,9 +43,11 @@ const Dashboard = () => {
       setParties(partiesData || [])
       setStatistics(statsData.statistics || null)
 
-      // Check if user has already voted (you might want to add this to your backend)
-      // For now, we'll check localStorage
-      const votedStatus = localStorage.getItem(`voted_${username}`)
+      // Get election ID from status data
+      const electionId = statusData?.status?.electionId || statusData?.status?.startTime
+      
+      // Check if user has voted in this specific election
+      const votedStatus = localStorage.getItem(`voted_${username}_${electionId}`)
       setHasVoted(!!votedStatus)
     } catch (err) {
       setError("Failed to load dashboard data: " + err.message)
