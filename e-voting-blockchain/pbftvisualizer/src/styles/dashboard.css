@@ -1,0 +1,150 @@
+/* Simple Dashboard Styles */
+.pbft-dashboard {
+    min-height: 100vh;
+    background: var(--surface);
+}
+
+.dashboard-header {
+    text-align: center;
+    margin-bottom: var(--spacing-xl);
+    padding: var(--spacing-xl) 0;
+}
+
+.dashboard-title {
+    color: var(--primary);
+    margin-bottom: var(--spacing-md);
+}
+
+/* Node Grid */
+.node-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+}
+
+/* Node Cards */
+.node-card {
+    background: var(--background);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    padding: var(--spacing-lg);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.node-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: var(--border);
+}
+
+.node-card.active::before {
+    background: var(--success);
+}
+
+.node-card.demo::before {
+    background: var(--primary);
+}
+
+.node-card.inactive::before {
+    background: var(--text-muted);
+}
+
+.node-card.malicious::before {
+    background: var(--danger);
+}
+
+.node-card.primary::before {
+    background: var(--warning);
+}
+
+.node-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.node-id {
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+}
+
+.node-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.node-detail {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.875rem;
+}
+
+.node-detail-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.node-detail-value {
+    color: var(--text-primary);
+    font-family: monospace;
+    font-size: 0.8rem;
+}
+
+/* Consensus Phases */
+.consensus-phases {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.phase-card {
+    text-align: center;
+    padding: var(--spacing-lg);
+    border: 2px solid var(--border);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.phase-card.active {
+    border-color: var(--primary);
+    background: rgba(37, 99, 235, 0.05);
+    transform: scale(1.02);
+}
+
+.phase-title {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+    color: var(--text-primary);
+}
+
+.phase-description {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .consensus-phases {
+        grid-template-columns: 1fr;
+    }
+
+    .node-grid {
+        grid-template-columns: 1fr;
+    }
+}

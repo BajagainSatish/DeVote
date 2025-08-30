@@ -1,0 +1,24 @@
+{
+    "nodes": [
+        {
+            "id": "node1",
+            "address": "localhost",
+            "port": 8081
+        },
+        {
+            "id": "node2",
+            "address": "localhost",
+            "port": 8082
+        },
+        {
+            "id": "node3",
+            "address": "localhost",
+            "port": 8083
+        },
+        {
+            "id": "node4",
+            "address": "localhost",
+            "port": 8084
+        }
+    ]
+}
