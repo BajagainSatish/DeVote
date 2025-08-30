@@ -14,6 +14,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import ManageVoters from "./pages/Admin/ManageVoters";
+import BlockchainExplorer from "./pages/Admin/BlockchainExplorer";
 
 function App() {
   return (
@@ -34,6 +35,7 @@ function App() {
           <Route path="parties/manage" element={<ManageParties />} />
           <Route path="election/manage" element={<ElectionManagement />} />
           <Route path="voters/manage" element={<ManageVoters />} />
+          <Route path="viewblockchain" element={<BlockchainExplorer />} />
         </Route>
       </Routes>
       <ToastContainer />
