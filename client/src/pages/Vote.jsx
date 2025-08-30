@@ -175,11 +175,56 @@ const Vote = () => {
     <div className="min-h-screen bg-[#F4F3F2]">
       <Navbar />
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
+      <div className="max-w-4xl mx-auto px-6 py-8">
+        {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Cast Your Vote</h1>
-          <p className="text-gray-600">Select your preferred candidate and submit your vote</p>
-          <p className="text-sm text-gray-500 mt-2">Logged in as: {username}</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">🎭 Anonymous Voting System</h1>
+          <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            Experience true voter anonymity with RSA blind signatures, zero-knowledge proofs, and anonymous blockchain
+            transactions
+          </p>
+        </div>
+
+        {/* Privacy Technologies Explanation */}
+        <div className="grid md:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-blue-500">
+            <h3 className="font-bold text-blue-700 mb-2">🔐 RSA Blind Signatures</h3>
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>What it does:</strong> Creates anonymous voting tokens
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>Output:</strong> Signed token hash that proves authenticity without revealing voter identity
+            </p>
+            <p className="text-sm text-gray-600">
+              <strong>User sees:</strong> Blind signature hash in voting receipt
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-green-500">
+            <h3 className="font-bold text-green-700 mb-2">🧮 Zero-Knowledge Proof</h3>
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>What it does:</strong> Proves vote is valid without revealing the choice
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>Output:</strong> Cryptographic proof hash that validates vote legitimacy
+            </p>
+            <p className="text-sm text-gray-600">
+              <strong>User sees:</strong> ZK proof hash in voting receipt
+            </p>
+          </div>
+
+          <div className="bg-white p-6 rounded-lg shadow-md border-l-4 border-purple-500">
+            <h3 className="font-bold text-purple-700 mb-2">🎭 Voter Anonymity</h3>
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>What it does:</strong> Prevents linking votes to voters
+            </p>
+            <p className="text-sm text-gray-600 mb-2">
+              <strong>Output:</strong> Anonymous transaction with empty sender field
+            </p>
+            <p className="text-sm text-gray-600">
+              <strong>User sees:</strong> "Anonymous" in blockchain explorer instead of voter ID
+            </p>
+          </div>
         </div>
 
         {electionStatus && (
@@ -326,7 +371,7 @@ const Vote = () => {
             )}
           </div>
         )}
-      </main>
+      </div>
 
       <Footer />
     </div>

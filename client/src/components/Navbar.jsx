@@ -30,7 +30,7 @@ const Navbar = () => {
               Dashboard
             </Link>
           </li>
-          <li>
+          {/* <li>
             <Link to="/vote" className="hover:text-gray-900 cursor-pointer">
               Vote
             </Link>
@@ -38,6 +38,11 @@ const Navbar = () => {
           <li>
             <Link to="/anonymous-vote" className="hover:text-blue-600 cursor-pointer font-semibold">
               Anonymous Vote
+            </Link>
+          </li> */}
+          <li>
+            <Link to="/vote-anonymous" className="hover:text-blue-600 cursor-pointer font-semibold">
+              Vote Anonymously
             </Link>
           </li>
           <li>

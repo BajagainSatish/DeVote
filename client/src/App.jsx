@@ -11,6 +11,7 @@ import Results from "./pages/Results"
 import BlockchainExplorer from "./pages/BlockchainExplorer"
 import AnonymousVote from "./pages/AnonymousVote"
 import VotingFlowDiagram from "./pages/VotingFlowDiagram"
+import VoteAnonymous from "./pages/VoteAnonymous"
 
 function App() {
   return (
@@ -23,6 +24,7 @@ function App() {
       <Route path="/results" element={<Results />} />
       <Route path="/blockchain" element={<BlockchainExplorer />} />
       <Route path="/anonymous-vote" element={<AnonymousVote />} />
+      <Route path="/vote-anonymous" element={<VoteAnonymous />} />
       <Route path="/flow-diagram" element={<VotingFlowDiagram />} />
 
     </Routes>
