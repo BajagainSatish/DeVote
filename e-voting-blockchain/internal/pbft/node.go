@@ -396,8 +396,16 @@ func (n *PBFTNode) checkCommitThreshold(key string, sequenceNum int, blockHash s
 		if n.OnBlockCommitted != nil && blockData != "" {
 			var block interface{}
 			if err := json.Unmarshal([]byte(blockData), &block); err == nil {
-				n.OnBlockCommitted(block)
+				if err := n.OnBlockCommitted(block); err != nil {
+					log.Printf("Node %s: Error committing block: %v", n.ID, err)
+				} else {
+					log.Printf("Node %s: Block successfully committed to blockchain", n.ID)
+				}
+			} else {
+				log.Printf("Node %s: Error unmarshaling block data: %v", n.ID, err)
 			}
+		} else {
+			log.Printf("Node %s: Warning - OnBlockCommitted callback not set or no block data", n.ID)
 		}
 
 		// Reset state for next consensus round
@@ -505,17 +513,19 @@ func (n *PBFTNode) validateTransaction(tx interface{}) bool {
 		return false
 	}
 
-	// Check required fields
-	requiredFields := []string{"voter_id", "candidate", "timestamp"}
+	// Check required fields based on your Transaction struct
+	requiredFields := []string{"id", "sender", "receiver", "payload"}
 	for _, field := range requiredFields {
 		if _, exists := txMap[field]; !exists {
+			log.Printf("Node %s: Missing required field: %s", n.ID, field)
 			return false
 		}
 	}
 
-	// Validate candidate (simple validation)
-	candidate, ok := txMap["candidate"].(string)
-	if !ok || candidate == "" {
+	// Validate receiver (candidate)
+	receiver, ok := txMap["receiver"].(string)
+	if !ok || receiver == "" {
+		log.Printf("Node %s: Invalid receiver", n.ID)
 		return false
 	}
 

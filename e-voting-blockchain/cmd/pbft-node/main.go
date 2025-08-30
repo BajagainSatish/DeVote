@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"e-voting-blockchain/blockchain"
 	"e-voting-blockchain/internal/pbft"
 	"e-voting-blockchain/internal/server"
@@ -90,24 +91,35 @@ func main() {
 
 	// Set up blockchain integration
 	pbftNode.OnBlockCommitted = func(blockData interface{}) error {
+		log.Printf("Node %s: OnBlockCommitted callback triggered", *nodeID)
+
 		// Convert the committed block data back to blockchain.Block
 		blockJSON, err := json.Marshal(blockData)
 		if err != nil {
+			log.Printf("Node %s: Failed to marshal block data: %v", *nodeID, err)
 			return fmt.Errorf("failed to marshal block data: %v", err)
 		}
 
+		log.Printf("Node %s: Block JSON: %s", *nodeID, string(blockJSON)[:100])
+
 		var block blockchain.Block
 		if err := json.Unmarshal(blockJSON, &block); err != nil {
+			log.Printf("Node %s: Failed to unmarshal block: %v", *nodeID, err)
 			return fmt.Errorf("failed to unmarshal block: %v", err)
 		}
 
-		// Add the committed block to our blockchain
-		bc.Blocks = append(bc.Blocks, block)
-		blockchain.SaveBlock(block)
+		log.Printf("Node %s: Adding block #%d to blockchain (Hash: %s, Txs: %d)",
+			*nodeID, block.Index, block.Hash[:8], len(block.Transactions))
 
+		// Use your existing AddBlock method which expects []Transaction
+		bc.AddBlock(block.Transactions) // This is correct for your implementation
+
+		// Clear pending transactions
 		bc.ClearPendingTransactions()
 
-		log.Printf("Node %s: Block #%d committed to blockchain (Hash: %s)", *nodeID, block.Index, block.Hash[:8])
+		log.Printf("Node %s: Block #%d successfully committed! New chain height: %d",
+			*nodeID, block.Index, len(bc.Blocks))
+
 		return nil
 	}
 
@@ -130,9 +142,9 @@ func main() {
 	r.HandleFunc("/vote", pbftServer.handleVote).Methods("POST", "OPTIONS")
 	r.HandleFunc("/tally", pbftServer.handleTally).Methods("GET", "OPTIONS")
 	r.HandleFunc("/blockchain", pbftServer.handleGetBlockchain).Methods("GET")
-
 	r.HandleFunc("/blockchain/genesis", pbftServer.handleGetGenesis).Methods("GET")
 	r.HandleFunc("/blockchain/state", pbftServer.handleGetBlockchainState).Methods("GET")
+	r.HandleFunc("/blockchain/pending", pbftServer.handleGetPendingTransactions).Methods("GET")
 	r.HandleFunc("/health", pbftServer.handleHealth).Methods("GET")
 
 	// Add CORS middleware
@@ -175,15 +187,29 @@ func (s *PBFTServer) handlePBFTStatus(w http.ResponseWriter, r *http.Request) {
 
 // handleStartConsensus manually starts consensus (for testing)
 func (s *PBFTServer) handleStartConsensus(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
 	if !s.node.IsPrimary {
-		http.Error(w, "Only primary can start consensus", http.StatusForbidden)
+		w.WriteHeader(http.StatusForbidden)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":      "Only primary node can start consensus",
+			"node_id":    *nodeID,
+			"is_primary": "false",
+		})
 		return
 	}
 
 	// Get pending transactions
 	pendingTxs := s.blockchain.GetPendingTransactions()
+	log.Printf("Node %s: Checking pending transactions - found %d", *nodeID, len(pendingTxs))
+
 	if len(pendingTxs) == 0 {
-		http.Error(w, "No pending transactions", http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":      "No pending transactions available for consensus",
+			"suggestion": "Submit a vote first to create pending transactions",
+			"node_id":    *nodeID,
+		})
 		return
 	}
 
@@ -200,19 +226,41 @@ func (s *PBFTServer) handleStartConsensus(w http.ResponseWriter, r *http.Request
 
 	newBlock.Hash = newBlock.ComputeHash()
 
+	log.Printf("Node %s: Starting PBFT consensus for block #%d with %d transactions",
+		*nodeID, newBlock.Index, len(pendingTxs))
+
 	// Start PBFT consensus for this block
 	if err := s.node.StartConsensus(newBlock); err != nil {
-		http.Error(w, fmt.Sprintf("Failed to start consensus: %v", err), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error":   fmt.Sprintf("Failed to start consensus: %v", err),
+			"node_id": *nodeID,
+		})
 		return
 	}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "consensus started"})
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":            "consensus_started",
+		"block_index":       newBlock.Index,
+		"block_hash":        newBlock.Hash,
+		"transaction_count": len(pendingTxs),
+		"node_id":           *nodeID,
+	})
 }
 
 // handleVote processes votes through PBFT consensus
+// Fix 1: Update handleVote in cmd/pbft-node/main.go
 func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
 
 	type VoteRequest struct {
 		VoterID     string `json:"voter_id"`
@@ -226,30 +274,47 @@ func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("Node %s: Received vote request - Voter: %s, Candidate: %s",
+		*nodeID, req.VoterID, req.CandidateID)
+
 	// Create transaction
 	tx := blockchain.NewTransaction(req.VoterID, req.CandidateID, "VOTE")
 
 	if !s.node.IsPrimary {
-		// Find the primary node
-		var primaryAddress string
+		log.Printf("Node %s: Not primary, forwarding vote to primary", *nodeID)
+
+		// Find the actual primary node
+		var primaryNode *pbft.Peer
 		for _, peer := range s.node.Peers {
-			if peer.ID == "node1" { // Assuming node1 is always primary
-				primaryAddress = fmt.Sprintf("http://%s:%d", peer.Address, peer.Port)
+			// Check if this peer is the primary
+			statusResp, err := http.Get(fmt.Sprintf("http://%s:%d/pbft/status", peer.Address, peer.Port))
+			if err != nil {
+				continue
+			}
+			defer statusResp.Body.Close()
+
+			var status map[string]interface{}
+			if err := json.NewDecoder(statusResp.Body).Decode(&status); err != nil {
+				continue
+			}
+
+			if isPrimary, ok := status["is_primary"].(bool); ok && isPrimary {
+				primaryNode = peer
 				break
 			}
 		}
 
-		if primaryAddress != "" {
+		if primaryNode != nil {
 			// Forward the vote to the primary
 			go func() {
 				voteData, _ := json.Marshal(req)
-				resp, err := http.Post(primaryAddress+"/vote", "application/json",
-					strings.NewReader(string(voteData)))
+				primaryURL := fmt.Sprintf("http://%s:%d/vote", primaryNode.Address, primaryNode.Port)
+				resp, err := http.Post(primaryURL, "application/json", bytes.NewReader(voteData))
 				if err != nil {
 					log.Printf("Node %s: Failed to forward vote to primary: %v", *nodeID, err)
 				} else {
 					resp.Body.Close()
-					log.Printf("Node %s: Vote forwarded to primary", *nodeID)
+					log.Printf("Node %s: Vote forwarded to primary %s", *nodeID, primaryNode.ID)
 				}
 			}()
 		}
@@ -264,42 +329,53 @@ func (s *PBFTServer) handleVote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Primary node processing
+	log.Printf("Node %s (PRIMARY): Adding transaction to pending pool", *nodeID)
 	s.blockchain.AddTransaction(tx)
 
-	if s.blockchain.GetPendingTransactionCount() >= 1 {
-		go func() {
-			time.Sleep(1 * time.Second) // Small delay to collect more transactions
+	pendingCount := s.blockchain.GetPendingTransactionCount()
+	log.Printf("Node %s (PRIMARY): Pending transactions count: %d", *nodeID, pendingCount)
 
-			pendingTxs := s.blockchain.GetPendingTransactions()
-			if len(pendingTxs) > 0 {
-				lastBlock := s.blockchain.GetLatestBlock()
-				newBlock := blockchain.Block{
-					Index:        len(s.blockchain.Blocks),
-					Timestamp:    time.Now().Format(time.RFC3339),
-					PrevHash:     lastBlock.Hash,
-					Transactions: pendingTxs,
-					MerkleRoot:   blockchain.ComputeMerkleRoot(pendingTxs),
-					Nonce:        0,
-				}
+	// Auto-start consensus if we have pending transactions
+	go func() {
+		// Small delay to collect any additional rapid transactions
+		time.Sleep(1 * time.Second)
 
-				newBlock.Hash = newBlock.ComputeHash()
+		pendingTxs := s.blockchain.GetPendingTransactions()
+		if len(pendingTxs) == 0 {
+			log.Printf("Node %s (PRIMARY): No pending transactions after delay", *nodeID)
+			return
+		}
 
-				log.Printf("Node %s (PRIMARY): Starting consensus for block #%d with %d transactions",
-					*nodeID, newBlock.Index, len(pendingTxs))
+		log.Printf("Node %s (PRIMARY): Auto-starting consensus with %d pending transactions", *nodeID, len(pendingTxs))
 
-				if err := s.node.StartConsensus(newBlock); err != nil {
-					log.Printf("Node %s: Failed to start consensus: %v", *nodeID, err)
-				}
-			}
-		}()
-	}
+		lastBlock := s.blockchain.GetLatestBlock()
+		newBlock := blockchain.Block{
+			Index:        len(s.blockchain.Blocks),
+			Timestamp:    time.Now().Format(time.RFC3339),
+			PrevHash:     lastBlock.Hash,
+			Transactions: pendingTxs,
+			MerkleRoot:   blockchain.ComputeMerkleRoot(pendingTxs),
+			Nonce:        0,
+		}
+
+		newBlock.Hash = newBlock.ComputeHash()
+
+		log.Printf("Node %s (PRIMARY): Starting PBFT consensus for block #%d (Hash: %s)",
+			*nodeID, newBlock.Index, newBlock.Hash[:8])
+
+		if err := s.node.StartConsensus(newBlock); err != nil {
+			log.Printf("Node %s (PRIMARY): Failed to auto-start consensus: %v", *nodeID, err)
+		}
+	}()
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]interface{}{
 		"transaction_id": tx.ID,
 		"status":         "pending_consensus",
-		"message":        "Vote submitted for consensus",
+		"message":        "Vote submitted for PBFT consensus",
 		"node_type":      "primary",
+		"pending_count":  pendingCount,
 	})
 }
 
@@ -319,6 +395,22 @@ func (s *PBFTServer) handleTally(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(tally)
+}
+
+func (s *PBFTServer) handleGetPendingTransactions(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	pendingTxs := s.blockchain.GetPendingTransactions()
+
+	response := map[string]interface{}{
+		"pending_count": len(pendingTxs),
+		"transactions":  pendingTxs,
+		"node_id":       *nodeID,
+		"is_primary":    s.node.IsPrimary,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 // handleGetBlockchain returns the current blockchain

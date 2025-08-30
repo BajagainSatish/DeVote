@@ -35,3 +35,59 @@ func NewTransaction(sender, receiver, payload string) Transaction {
 		Payload:  payload,
 	}
 }
+
+// IsValidTransaction validates a transaction
+func (tx *Transaction) IsValidTransaction() bool {
+	// Basic validation
+	if tx.ID == "" || tx.Sender == "" || tx.Receiver == "" {
+		return false
+	}
+
+	// Verify hash by recomputing and comparing with stored ID
+	expectedHash := tx.ComputeHash()
+	return tx.ID == expectedHash
+}
+
+// ComputeHash generates a SHA-256 hash of the transaction fields
+func (tx *Transaction) ComputeHash() string {
+	// Concatenate relevant fields
+	data := tx.Sender + tx.Receiver + tx.Payload + tx.Type
+
+	// Compute SHA-256
+	hash := sha256.Sum256([]byte(data))
+
+	// Return hex-encoded string
+	return hex.EncodeToString(hash[:])
+}
+
+// GetTransactionsByCandidate returns all transactions for a specific candidate
+func (bc *Blockchain) GetTransactionsByCandidate(candidate string) []Transaction {
+	bc.mutex.RLock()
+	defer bc.mutex.RUnlock()
+
+	var transactions []Transaction
+	for _, block := range bc.Blocks {
+		for _, tx := range block.Transactions {
+			if tx.Receiver == candidate && tx.Payload == "VOTE" {
+				transactions = append(transactions, tx)
+			}
+		}
+	}
+	return transactions
+}
+
+// GetVoteTally returns vote counts for all candidates
+func (bc *Blockchain) GetVoteTally() map[string]int {
+	bc.mutex.RLock()
+	defer bc.mutex.RUnlock()
+
+	tally := make(map[string]int)
+	for _, block := range bc.Blocks {
+		for _, tx := range block.Transactions {
+			if tx.Payload == "VOTE" {
+				tally[tx.Receiver]++
+			}
+		}
+	}
+	return tally
+}

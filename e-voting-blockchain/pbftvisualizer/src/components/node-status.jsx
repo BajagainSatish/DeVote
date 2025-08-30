@@ -1,80 +1,51 @@
 import { Badge } from "./common/Badge"
 import { Server, Shield, AlertTriangle } from "lucide-react"
 
-export function NodeStatus({ node }) {
+export // Mock components for demonstration - replace with your actual components
+function NodeStatus({ node }) {
   const getStatusVariant = (status) => {
     switch (status) {
-      case "active":
-      case "demo":
-        return "success"
-      case "malicious":
-        return "destructive"
-      case "inactive":
-        return "outline"
-      default:
-        return "outline"
-    }
-  }
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "active":
-      case "demo":
-        return <Server style={{ width: "16px", height: "16px" }} />
-      case "malicious":
-        return <AlertTriangle style={{ width: "16px", height: "16px" }} />
-      case "inactive":
-        return <Server style={{ width: "16px", height: "16px", opacity: 0.5 }} />
-      default:
-        return <Server style={{ width: "16px", height: "16px" }} />
+      case "active": return "success"
+      case "malicious": return "destructive"
+      case "inactive": return "outline"
+      default: return "outline"
     }
   }
 
   return (
-    <div className={`node-card ${node.status} ${node.isPrimary ? "primary" : ""}`}>
+    <div style={{
+      padding: "16px",
+      border: "1px solid var(--border)",
+      borderRadius: "8px",
+      position: "relative",
+      backgroundColor: node.status === "malicious" ? "rgba(239, 68, 68, 0.1)" : "var(--surface)"
+    }}>
       {node.isPrimary && (
-        <div style={{ position: "absolute", top: "-8px", right: "-8px" }}>
-          <Badge variant="default">
-            <Shield style={{ width: "12px", height: "12px", marginRight: "4px" }} />
-            Primary
-          </Badge>
+        <div style={{ position: "absolute", top: "8px", right: "8px" }}>
+          <Badge variant="default">Primary</Badge>
         </div>
       )}
-
-      <div className="node-header">
-        <div className="node-id">
-          {getStatusIcon(node.status)}
-          {node.id.toUpperCase()}
-        </div>
+      
+      <div style={{ fontWeight: "600", marginBottom: "8px" }}>
+        {node.id.toUpperCase()}
       </div>
-
-      <div className="node-info">
-        <div className="node-detail">
-          <span className="node-detail-label">Address:</span>
-          <span className="node-detail-value">
-            {node.address}:{node.port}
-          </span>
-        </div>
-
-        <div style={{ marginTop: "8px" }}>
-          <Badge variant={getStatusVariant(node.status)}>
-            {node.status === "demo" ? "DEMO" : node.status.toUpperCase()}
-          </Badge>
-        </div>
-
-        {(node.status === "active" || node.status === "demo") && (
-          <div style={{ marginTop: "12px" }}>
-            <div className="node-detail">
-              <span className="node-detail-label">Height:</span>
-              <span className="node-detail-value">{node.height}</span>
-            </div>
-            <div className="node-detail">
-              <span className="node-detail-label">Hash:</span>
-              <span className="node-detail-value">{node.hash.slice(0, 8)}...</span>
-            </div>
-          </div>
-        )}
+      
+      <div style={{ fontSize: "0.875rem", color: "var(--text-secondary)", marginBottom: "8px" }}>
+        {node.address}:{node.port}
       </div>
+      
+      <Badge variant={getStatusVariant(node.status)}>
+        {node.status.toUpperCase()}
+      </Badge>
+      
+      {(node.status === "active" || node.status === "malicious") && (
+        <div style={{ marginTop: "12px", fontSize: "0.875rem" }}>
+          <div>Height: {node.height}</div>
+          <div>Hash: {node.hash.slice(0, 8)}...</div>
+          {node.view !== undefined && <div>View: {node.view}</div>}
+          {node.sequenceNum !== undefined && <div>Seq: {node.sequenceNum}</div>}
+        </div>
+      )}
     </div>
   )
 }

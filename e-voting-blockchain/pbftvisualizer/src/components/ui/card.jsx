@@ -1,31 +1,42 @@
-// ui/card.jsx
-export function Card({ children, className = "" }) {
+export function Card({ children, style }) {
   return (
-    <div className={`card ${className}`}>
+    <div style={{
+      backgroundColor: "var(--surface, #ffffff)",
+      border: "1px solid var(--border, #e5e5e5)",
+      borderRadius: "8px",
+      marginBottom: "24px",
+      ...style
+    }}>
       {children}
     </div>
   )
 }
 
-export function CardHeader({ children, className = "" }) {
+export function CardHeader({ children }) {
   return (
-    <div className={`card-header ${className}`}>
+    <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--border, #e5e5e5)" }}>
       {children}
     </div>
   )
 }
 
-export function CardTitle({ children, className = "" }) {
+export function CardContent({ children, style }) {
   return (
-    <h2 className={`card-title ${className}`}>
+    <div style={{ padding: "24px", ...style }}>
       {children}
-    </h2>
+    </div>
   )
 }
 
-export function CardContent({ children, className = "" }) {
+export function CardTitle({ children }) {
   return (
-    <div className={`card-content ${className}`}>
+    <div style={{ 
+      display: "flex", 
+      justifyContent: "space-between", 
+      alignItems: "center",
+      fontSize: "1.125rem",
+      fontWeight: "600"
+    }}>
       {children}
     </div>
   )
