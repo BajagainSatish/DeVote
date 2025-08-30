@@ -43,7 +43,7 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-20 bg-gray-100 px-4">
+      <section id="features" className="py-20 bg-gray-100 px-4">
         <div className="max-w-6xl mx-auto text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-800 mb-4">
             Why Choose DeVote?
@@ -116,7 +116,7 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-20 bg-gray-100 px-4">
+      <section id="how-it-works" className="py-20 bg-gray-100 px-4">
         <div className="max-w-6xl mx-auto text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-800 mb-4">
             How it Works?
@@ -156,7 +156,9 @@ const Home = () => {
         </div>
       </section>
 
-      <Footer />
+      <section id="contact">
+        <Footer />
+      </section>
     </div>
   );
 };

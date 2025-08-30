@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"os"
+	"time"
 )
 
 type VoterRecord struct {
@@ -19,12 +20,21 @@ type VoterRecord struct {
 }
 
 // Struct for users who have successfully registered
+// type RegisteredUser struct {
+// 	Username string `json:"username"`
+// 	Password string `json:"password"`
+// 	VoterID  string `json:"voterId"`
+// 	Email    string `json:"email"`
+// }
 type RegisteredUser struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-	VoterID  string `json:"voterId"`
-	Email    string `json:"email"`
+    Username          string `json:"username"`
+    Password          string `json:"password"`
+    VoterID           string `json:"voterId"`
+    Email             string `json:"email"`
+    ResetToken        string `json:"resetToken,omitempty"`
+    ResetTokenExpiry  time.Time `json:"resetTokenExpiry,omitempty"`
 }
+
 
 // VoterDatabase holds all valid voter records
 type VoterDatabase struct {

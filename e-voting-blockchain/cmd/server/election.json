@@ -1,0 +1,12 @@
+{
+  "candidates": {},
+  "voters": {},
+  "users": {},
+  "parties": {},
+  "status": {
+    "isActive": false,
+    "startTime": "0001-01-01T00:00:00Z",
+    "endTime": "0001-01-01T00:00:00Z",
+    "description": "Election not started"
+  }
+}

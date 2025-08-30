@@ -18,25 +18,27 @@ export default function AdminLogin() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const { email, password } = formData;
-    
+
     if (!email || !password) {
       toast.error("Please fill in all fields.");
       return;
     }
 
     setLoading(true);
-    
+
     try {
       const result = await login({ email, password });
-      
+
       if (result.success) {
         toast.success("Login successful!");
+        setFormData({ email: "", password: "" });
         navigate("/dashboard");
       } else {
-        toast.error(result.error || "Login failed");
+        toast.error("Login failed! Invalid credentials.");
       }
     } catch (error) {
       toast.error("An error occurred during login" + error);
+      setFormData({ email: "", password: "" });
     } finally {
       setLoading(false);
     }

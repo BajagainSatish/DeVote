@@ -3,18 +3,35 @@
     "username": "voter_v1",
     "password": "fH0CszJU",
     "voterId": "v1",
-    "email": "ram@hero.com"
+    "email": "ram@hero.com",
+    "resetTokenExpiry": "0001-01-01T00:00:00Z"
   },
   {
     "username": "voter_v2",
     "password": "7PyoByMp",
     "voterId": "v2",
-    "email": "shyam@noob.com"
+    "email": "shyam@noob.com",
+    "resetTokenExpiry": "0001-01-01T00:00:00Z"
   },
   {
     "username": "voter_v3",
-    "password": "NYcBxjYW",
+    "password": "t0j6qj6l",
     "voterId": "v3",
-    "email": "three@hero.com"
+    "email": "three@hero.com",
+    "resetTokenExpiry": "0001-01-01T00:00:00Z"
+  },
+  {
+    "username": "voter_v4",
+    "password": "pritamdsatharu",
+    "voterId": "v4",
+    "email": "griffin@gmail.com",
+    "resetTokenExpiry": "0001-01-01T00:00:00Z"
+  },
+  {
+    "username": "voter_v6",
+    "password": "$2a$10$Mu.zguJmcJjzA2aSPX47iesUXyF/P1dPfjm4llTffGpvcvw7LnQeO",
+    "voterId": "v6",
+    "email": "satish@gmail.com",
+    "resetTokenExpiry": "0001-01-01T00:00:00Z"
   }
 ]

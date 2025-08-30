@@ -8,7 +8,17 @@
       "partyName": "UML",
       "age": 77,
       "imageUrl": "https://th-i.thgim.com/public/news/international/iig8wn/article31878366.ece/alternates/BASE_SQUARE/TH21sharma-oliArt",
-      "votes": 1
+      "votes": 0
+    },
+    "prachanda404": {
+      "candidateId": "prachanda404",
+      "name": "Prachanda",
+      "bio": "Leader of Maoist",
+      "partyId": "3",
+      "partyName": "Unified Communist Party of Nepal (Maoist)",
+      "age": 73,
+      "imageUrl": "https://thafd.bing.com/th/id/OIP._PQCdRBk3m3zx6QeurC4VQHaFj?w=252\u0026h=188\u0026c=7\u0026r=0\u0026o=7\u0026dpr=1.3\u0026pid=1.7\u0026rm=3",
+      "votes": 0
     },
     "shere123": {
       "candidateId": "shere123",
@@ -21,11 +31,15 @@
       "votes": 0
     }
   },
-  "voters": {
-    "v1": true
-  },
+  "voters": {},
   "users": {},
   "parties": {
+    "3": {
+      "id": "3",
+      "name": "Unified Communist Party of Nepal (Maoist)",
+      "description": "\n\nThe Communist Party of Nepal (UML), formed in January 1991, is the largest left-wing party in Nepal. It plays a significant role in the country's politics and has been involved in various campaigns to address public concerns.",
+      "color": "#9f1e1e"
+    },
     "emale": {
       "id": "emale",
       "name": "UML",
@@ -41,8 +55,8 @@
   },
   "status": {
     "isActive": true,
-    "startTime": "2025-08-30T21:55:48.028648+05:45",
-    "endTime": "2025-08-31T21:55:48.028648+05:45",
-    "description": "testelection"
+    "startTime": "2025-08-30T15:53:08.1247901+05:45",
+    "endTime": "2025-08-31T15:53:08.1247901+05:45",
+    "description": "dasda"
   }
 }
