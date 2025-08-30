@@ -35,7 +35,27 @@ const VoteAnonymous = () => {
       return
     }
     loadVotingData()
+    // Load persisted vote result if exists
+    loadPersistedVoteResult()
   }, [username, navigate])
+
+  const loadPersistedVoteResult = () => {
+    if (!username || !currentElectionId) return
+    
+    const persistKey = `anonymous_vote_result_${username}_${currentElectionId}`
+    const persistedResult = localStorage.getItem(persistKey)
+    
+    if (persistedResult) {
+      try {
+        const parsedResult = JSON.parse(persistedResult)
+        setVoteResult(parsedResult)
+        setVotingStep("complete")
+        setSelectedId(parsedResult.selectedCandidateId)
+      } catch (error) {
+        console.error("Failed to load persisted vote result:", error)
+      }
+    }
+  }
 
   const loadVotingData = async () => {
     try {
@@ -65,6 +85,8 @@ const VoteAnonymous = () => {
 
           if (hasVotedInCurrentElection || localVotedStatus) {
             setMessage("You have already cast your vote in this election.")
+            // Also check for persisted anonymous vote result
+            loadPersistedVoteResult()
           }
         } catch (error) {
           console.warn("Could not check server voting status, falling back to localStorage:", error)
@@ -72,6 +94,7 @@ const VoteAnonymous = () => {
           const localVotedStatus = localStorage.getItem(localVotedKey)
           if (localVotedStatus) {
             setMessage("You have already cast your vote in this election.")
+            loadPersistedVoteResult()
           }
         }
       }
@@ -79,6 +102,53 @@ const VoteAnonymous = () => {
       setMessage("Failed to load voting data: " + err.message)
     } finally {
       setLoading(false)
+    }
+  }
+
+  // Function to fetch the actual transaction from blockchain
+  const fetchTransactionFromBlockchain = async (candidateId) => {
+    try {
+      // Wait a bit for the transaction to be processed and added to blockchain
+      await delay(2000)
+      
+      const blockchainData = await VotingApiService.getBlockchain()
+      
+      if (!blockchainData || blockchainData.length === 0) {
+        console.warn("No blockchain data available")
+        return null
+      }
+
+      // Get the latest block (assuming our transaction is in the most recent block)
+      const latestBlock = blockchainData[blockchainData.length - 1]
+      
+      if (!latestBlock.Transactions || latestBlock.Transactions.length === 0) {
+        console.warn("Latest block has no transactions")
+        return null
+      }
+
+      // Find the transaction that matches our vote
+      // Since transactions show "Anonymous" as sender and candidateId as receiver
+      const voteTransaction = latestBlock.Transactions.find(tx => 
+        tx.Receiver === candidateId && 
+        (tx.Payload === "VOTE" || tx.Type === "VOTE")
+      )
+
+      if (voteTransaction) {
+        return {
+          transactionId: voteTransaction.ID,
+          blockIndex: latestBlock.Index,
+          blockHash: latestBlock.Hash,
+          merkleRoot: latestBlock.merkleRoot || latestBlock.MerkleRoot,
+          timestamp: latestBlock.Timestamp,
+          candidateId: candidateId
+        }
+      }
+
+      console.warn("Could not find matching vote transaction in latest block")
+      return null
+    } catch (error) {
+      console.error("Failed to fetch transaction from blockchain:", error)
+      return null
     }
   }
 
@@ -155,8 +225,13 @@ const VoteAnonymous = () => {
       await delay(1000)
       const anonymousResult = await zkService.castAnonymousVote(selectedId)
 
-      // Step 6: Blockchain Recording
-      addProcessStep("⛓️ Step 6: Blockchain Recording", "Recording anonymous transaction on blockchain")
+      // Step 6: Fetch actual transaction from blockchain
+      addProcessStep("🔍 Step 6: Fetching Transaction", "Retrieving transaction details from blockchain")
+      await delay(1000)
+      const blockchainTransaction = await fetchTransactionFromBlockchain(selectedId, voterID)
+
+      // Step 7: Blockchain Recording
+      addProcessStep("⛓️ Step 7: Blockchain Recording", "Recording anonymous transaction on blockchain")
       await delay(800)
 
       // Store voting status
@@ -171,9 +246,15 @@ const VoteAnonymous = () => {
       }
       keysToRemove.forEach((key) => localStorage.removeItem(key))
 
-      setVoteResult({
+      const finalVoteResult = {
         success: true,
-        transactionId: anonymousResult.transactionId,
+        selectedCandidateId: selectedId,
+        selectedCandidateName: candidates.find(c => c.candidateId === selectedId)?.name,
+        // Use actual transaction data if available, otherwise use generated data
+        transactionId: blockchainTransaction?.transactionId || anonymousResult.transactionId,
+        blockIndex: blockchainTransaction?.blockIndex,
+        blockHash: blockchainTransaction?.blockHash,
+        merkleRoot: blockchainTransaction?.merkleRoot,
         zkProof,
         commitment,
         blindSignature: blindSignatureRequest.signature,
@@ -184,7 +265,13 @@ const VoteAnonymous = () => {
           commitmentHash: commitment,
           blindSignatureHash: blindSignatureRequest.signatureHash,
         },
-      })
+      }
+
+      setVoteResult(finalVoteResult)
+
+      // Persist the vote result so it doesn't disappear on tab switch
+      const persistKey = `anonymous_vote_result_${username}_${electionId}`
+      localStorage.setItem(persistKey, JSON.stringify(finalVoteResult))
 
       setVotingStep("complete")
       setMessage("Anonymous vote cast successfully! Thank you for participating.")
@@ -215,6 +302,25 @@ const VoteAnonymous = () => {
   }
 
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+
+  const resetVoting = () => {
+    setVotingStep("select")
+    setSelectedId("")
+    setVotingProcess([])
+    setVoteResult(null)
+    setMessage("")
+    
+    // Clear persisted vote result
+    if (username && currentElectionId) {
+      const persistKey = `anonymous_vote_result_${username}_${currentElectionId}`
+      localStorage.removeItem(persistKey)
+    }
+  }
+
+  const viewInBlockchainExplorer = () => {
+    // Navigate to blockchain explorer
+    navigate("/blockchain")
+  }
 
   const filteredCandidates = filterParty === "all" ? candidates : candidates.filter((c) => c.partyId === filterParty)
 
@@ -487,6 +593,9 @@ const VoteAnonymous = () => {
                   <span className="font-semibold text-green-700">Transaction ID:</span>
                   <p className="font-mono text-xs text-gray-600 mt-1 break-all">{voteResult.transactionId}</p>
                   <p className="text-xs text-green-600 mt-1">Find your vote on blockchain</p>
+                  {voteResult.blockIndex !== undefined && (
+                    <p className="text-xs text-gray-500 mt-1">Block #{voteResult.blockIndex}</p>
+                  )}
                 </div>
 
                 <div className="bg-white p-3 rounded border">
@@ -506,16 +615,53 @@ const VoteAnonymous = () => {
                 </div>
               </div>
 
+              {voteResult.selectedCandidateName && (
+                <div className="mt-4 p-3 bg-white rounded border">
+                  <span className="font-semibold text-green-700">Vote Cast For:</span>
+                  <p className="text-sm text-gray-800 mt-1">{voteResult.selectedCandidateName}</p>
+                  <p className="text-xs text-gray-500 mt-1">This information is shown only to you</p>
+                </div>
+              )}
+
+              {voteResult.merkleRoot && (
+                <div className="mt-4 p-3 bg-white rounded border">
+                  <span className="font-semibold text-green-700">Block Merkle Root:</span>
+                  <p className="font-mono text-xs text-gray-600 mt-1 break-all">{voteResult.merkleRoot}</p>
+                  <p className="text-xs text-green-600 mt-1">Cryptographic proof of block integrity</p>
+                </div>
+              )}
+
               <div className="mt-4 p-3 bg-blue-50 rounded border border-blue-200">
                 <h4 className="font-semibold text-blue-800 mb-2">How to Validate Your Vote:</h4>
                 <ol className="text-sm text-blue-700 space-y-1">
                   <li>1. Go to Blockchain Explorer</li>
                   <li>2. Search for your Transaction ID</li>
                   <li>3. Verify the transaction shows "🎭 Anonymous" (not your name)</li>
-                  <li>4. Check that ZK Proof Hash matches your receipt</li>
+                  <li>4. Check that the candidate matches your choice</li>
                   <li>5. Confirm timestamp matches when you voted</li>
                 </ol>
               </div>
+            </div>
+
+            <div className="flex gap-4">
+              <button
+                onClick={resetVoting}
+                className="flex-1 py-2 px-4 bg-gray-500 text-white rounded hover:bg-gray-600 transition"
+              >
+                Vote Again (Demo)
+              </button>
+              <button
+                onClick={viewInBlockchainExplorer}
+                className="flex-1 py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+              >
+                View in Blockchain Explorer
+              </button>
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="flex-1 py-2 px-4 bg-green-600 text-white rounded hover:bg-green-700 transition"
+              >
+                Return to Dashboard
+              </button>
             </div>
           </div>
         )}
