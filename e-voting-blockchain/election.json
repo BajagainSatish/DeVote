@@ -22,7 +22,7 @@
     }
   },
   "voters": {
-    "v1": true
+    "v2": true
   },
   "users": {},
   "parties": {
@@ -41,8 +41,8 @@
   },
   "status": {
     "isActive": true,
-    "startTime": "2025-08-27T01:49:39.7292741+05:45",
-    "endTime": "2025-08-27T03:49:39.7292741+05:45",
-    "description": "KP vs Deuba"
+    "startTime": "2025-08-30T14:30:33.1352801+05:45",
+    "endTime": "2025-08-31T14:30:33.1352801+05:45",
+    "description": "Oli vs Deuba"
   }
 }
