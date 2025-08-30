@@ -215,14 +215,6 @@ const Vote = () => {
           </div>
         )}
 
-        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h3 className="font-medium text-blue-800 mb-2">Debug Information:</h3>
-          <p className="text-sm text-blue-700">Username: {username}</p>
-          <p className="text-sm text-blue-700">Voter ID: {username.replace("voter_", "")}</p>
-          <p className="text-sm text-blue-700">Election Active: {electionStatus?.isActive ? "Yes" : "No"}</p>
-          <p className="text-sm text-blue-700">Candidates Loaded: {candidates.length}</p>
-        </div>
-
         {parties.length > 0 && (
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 mb-2">Filter by Party:</label>

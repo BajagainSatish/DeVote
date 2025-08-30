@@ -176,7 +176,7 @@ const BlockchainExplorer = () => {
   const getTransactionLabels = (type) => {
     switch (type) {
       case "VOTE":
-        return { from: "From", to: "To" }
+        return { from: "From", to: "Candidate" }
       case "ADD_CANDIDATE":
       case "UPDATE_CANDIDATE":
       case "REMOVE_CANDIDATE":
@@ -716,7 +716,7 @@ const BlockchainExplorer = () => {
                                     <div className="flex items-center justify-between text-sm">
                                       <div>
                                         <span className="text-gray-600">{labels.from}:</span>
-                                        <span className="ml-2 font-mono text-gray-800">{tx.Sender || "—"}</span>
+                                        <span className="ml-2 font-mono text-gray-800">{txType === "VOTE" ? " Anonymous" : tx.Sender || "—"}</span>
                                       </div>
                                       <div>
                                         <span className="text-gray-600">{labels.to}:</span>
@@ -805,7 +805,7 @@ const BlockchainExplorer = () => {
                     <>
                       <div>
                         <span className="text-xs text-gray-500">{labels.from}:</span>
-                        <p className="font-mono text-xs">{tx.Sender || "—"}</p>
+                        <p className="font-mono text-xs">{txType === "VOTE" ? " Anonymous" : tx.Sender || "—"}</p>
                       </div>
                       <div>
                         <span className="text-xs text-gray-500">{labels.to}:</span>
@@ -907,7 +907,7 @@ const BlockchainExplorer = () => {
                         <>
                           <div>
                             <span className="text-xs text-gray-500">{labels.from}:</span>
-                            <p className="font-mono text-xs">{tx.Sender || "—"}</p>
+                            <p className="font-mono text-xs">{txType === "VOTE" ? " Anonymous" : tx.Sender || "—"}</p>
                           </div>
                           <div>
                             <span className="text-xs text-gray-500">{labels.to}:</span>

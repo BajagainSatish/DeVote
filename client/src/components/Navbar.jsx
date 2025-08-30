@@ -36,6 +36,11 @@ const Navbar = () => {
             </Link>
           </li>
           <li>
+            <Link to="/anonymous-vote" className="hover:text-blue-600 cursor-pointer font-semibold">
+              Anonymous Vote
+            </Link>
+          </li>
+          <li>
             <Link to="/results" className="hover:text-gray-900 cursor-pointer">
               Results
             </Link>
@@ -45,6 +50,12 @@ const Navbar = () => {
               Blockchain Explorer
             </Link>
           </li>
+          <li>
+            <Link to="/flow-diagram" className="hover:text-purple-600 cursor-pointer">
+              Flow Diagram
+            </Link>
+          </li>
+
         </ul>
       ) : (
         // Guest navigation

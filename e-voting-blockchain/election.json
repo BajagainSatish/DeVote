@@ -40,9 +40,9 @@
     }
   },
   "status": {
-    "isActive": false,
-    "startTime": "2025-08-30T15:31:46.2748193+05:45",
-    "endTime": "2025-08-31T15:31:46.2748193+05:45",
-    "description": "Election ended"
+    "isActive": true,
+    "startTime": "2025-08-30T18:41:35.4434503+05:45",
+    "endTime": "2025-08-30T20:41:35.4434503+05:45",
+    "description": "demotest"
   }
 }
