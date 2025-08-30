@@ -22,24 +22,6 @@ export function PBFTDashboard() {
   const [isConnected, setIsConnected] = useState(false)
   const [demoMode, setDemoMode] = useState(false)
 
-  // Initialize demo mode with mock active nodes
-  const initializeDemoMode = () => {
-    const mockActiveNodes = initialNodes.map((node, index) => ({
-      ...node,
-      status: index === 0 ? "active" : (index === 3 ? "malicious" : "active"), // Make node4 malicious for demo
-      height: 3 + Math.floor(Math.random() * 2), // Random height 3-4
-      hash: `${Date.now().toString(16).slice(-8)}${Math.random().toString(16).slice(2, 10)}`,
-      sequenceNum: Math.floor(Math.random() * 10),
-      view: 0,
-      state: 0,
-      isPrimary: index === 0
-    }))
-
-    setNodes(mockActiveNodes)
-    setIsConnected(true)
-    setDemoMode(true)
-  }
-
   const checkNodesStatus = async () => {
     if (demoMode) {
       // In demo mode, just simulate some updates
@@ -147,25 +129,8 @@ export function PBFTDashboard() {
                 <strong>Backend Not Connected</strong>
               </div>
               <p style={{ color: "var(--text-secondary)", marginBottom: "16px" }}>
-                Make sure your PBFT nodes are running, or use demo mode for visualization:
+                Make sure your PBFT nodes are running:
               </p>
-              <div style={{ 
-                backgroundColor: "var(--surface)", 
-                padding: "16px", 
-                borderRadius: "8px",
-                fontFamily: "monospace",
-                fontSize: "0.875rem",
-                textAlign: "left",
-                marginBottom: "16px"
-              }}>
-                <div>go run cmd/pbft-node/main.go -id node1 -port 8081</div>
-                <div>go run cmd/pbft-node/main.go -id node2 -port 8082</div>
-                <div>go run cmd/pbft-node/main.go -id node3 -port 8083</div>
-                <div>go run cmd/pbft-node/main.go -id node4 -port 8084</div>
-              </div>
-              <Button onClick={initializeDemoMode} variant="primary">
-                Enable Demo Mode
-              </Button>
             </CardContent>
           </Card>
         )}

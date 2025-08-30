@@ -1,4 +1,3 @@
-// blockchain.go
 package blockchain
 
 import (
@@ -18,8 +17,10 @@ type Blockchain struct {
 	blockInterval       time.Duration // Added configurable block creation interval
 }
 
+/*
 // CreateGenesisBlock creates the very first block in the chain.
 // This block has no previous block, so PrevHash is empty.
+// Change before decentralization
 func CreateGenesisBlock() Block {
 	genesis := Block{
 		Index:        0,
@@ -37,6 +38,38 @@ func CreateGenesisBlock() Block {
 // NewBlockchain creates a new blockchain with database integration
 func NewBlockchain() *Blockchain {
 	InitDB() // Open DB
+*/
+
+// CreateGenesisBlock creates the very first block in the chain.
+// This block has no previous block, so PrevHash is empty.
+func CreateGenesisBlock() Block {
+	genesis := Block{
+		Index:        0,
+		Timestamp:    "2025-01-01T00:00:00Z", // Fixed timestamp for deterministic genesis across all nodes
+		PrevHash:     "",
+		Transactions: []Transaction{},                    // Empty transaction list
+		MerkleRoot:   ComputeMerkleRoot([]Transaction{}), // Compute Merkle root for empty transactions
+		Nonce:        12345,                              // Fixed nonce instead of mining for deterministic genesis
+	}
+
+	genesis.GenerateHash()
+	return genesis
+}
+
+// NewBlockchain creates a new blockchain with database integration
+func NewBlockchain(customDBPath ...string) *Blockchain {
+	var err error
+
+	// Initialize database with custom path if provided
+	if len(customDBPath) > 0 && customDBPath[0] != "" {
+		err = InitDB(customDBPath[0])
+	} else {
+		err = InitDB() // Use default path
+	}
+
+	if err != nil {
+		fmt.Printf("Database initialization error: %v\n", err)
+	}
 
 	blocks, err := LoadBlocks()
 
@@ -258,4 +291,11 @@ func (bc *Blockchain) RecomputeMerkleRootsAndHashes() error {
 		fmt.Printf("Recomputed Block #%d PrevHash: %s Hash: %s\n", b.Index, b.PrevHash, b.Hash)
 	}
 	return nil
+}
+
+// ClearPendingTransactions clears the pending transaction queue (used after PBFT consensus)
+func (bc *Blockchain) ClearPendingTransactions() {
+	bc.mutex.Lock()
+	defer bc.mutex.Unlock()
+	bc.PendingTransactions = make([]Transaction, 0)
 }
