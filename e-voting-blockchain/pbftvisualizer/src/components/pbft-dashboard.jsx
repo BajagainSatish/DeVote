@@ -76,10 +76,10 @@ export function PBFTDashboard() {
     <div className="pbft-dashboard">
       <div className="container">
         {/* Header */}
-        <div className="dashboard-header space-y-2">
+        <div className="dashboard-header">
           <h1 className="dashboard-title text-4xl">PBFT Consensus Visualization</h1>
           <p className="text-muted text-lg">Practical Byzantine Fault Tolerance Algorithm with 4 Blockchain Nodes</p>
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex items-center justify-center gap-2" style={{ marginTop: "1rem" }}>
             <Badge variant={isConnected ? "default" : "destructive"}>
               {isConnected ? "Demo Mode (Genesis Block)" : "Nodes Offline"}
             </Badge>

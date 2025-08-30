@@ -1,9 +1,32 @@
-const Card = ({ className, ...props }) => <div className={`card ${className || ""}`} {...props} />
+// ui/card.jsx
+export function Card({ children, className = "" }) {
+  return (
+    <div className={`card ${className}`}>
+      {children}
+    </div>
+  )
+}
 
-const CardHeader = ({ className, ...props }) => <div className={`card-header ${className || ""}`} {...props} />
+export function CardHeader({ children, className = "" }) {
+  return (
+    <div className={`card-header ${className}`}>
+      {children}
+    </div>
+  )
+}
 
-const CardTitle = ({ className, ...props }) => <h3 className={`card-title ${className || ""}`} {...props} />
+export function CardTitle({ children, className = "" }) {
+  return (
+    <h2 className={`card-title ${className}`}>
+      {children}
+    </h2>
+  )
+}
 
-const CardContent = ({ className, ...props }) => <div className={`card-content ${className || ""}`} {...props} />
-
-export { Card, CardHeader, CardTitle, CardContent }
+export function CardContent({ children, className = "" }) {
+  return (
+    <div className={`card-content ${className}`}>
+      {children}
+    </div>
+  )
+}

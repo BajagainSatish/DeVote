@@ -1,23 +1,21 @@
-/* PBFT Dashboard Specific Styles */
+/* Simple Dashboard Styles */
 .pbft-dashboard {
     min-height: 100vh;
-    background: linear-gradient(135deg, var(--surface) 0%, var(--background) 100%);
+    background: var(--surface);
 }
 
 .dashboard-header {
     text-align: center;
-    margin-bottom: var(--spacing-2xl);
+    margin-bottom: var(--spacing-xl);
     padding: var(--spacing-xl) 0;
 }
 
 .dashboard-title {
-    background: linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: var(--primary);
     margin-bottom: var(--spacing-md);
 }
 
+/* Node Grid */
 .node-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -25,14 +23,14 @@
     margin-bottom: var(--spacing-xl);
 }
 
+/* Node Cards */
 .node-card {
     background: var(--background);
     border: 2px solid var(--border);
-    border-radius: var(--radius-lg);
+    border-radius: 8px;
     padding: var(--spacing-lg);
     transition: all 0.3s ease;
     position: relative;
-    overflow: hidden;
 }
 
 .node-card::before {
@@ -42,26 +40,32 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: var(--secondary);
-    transition: background 0.3s ease;
+    background: var(--border);
 }
 
 .node-card.active::before {
     background: var(--success);
 }
 
+.node-card.demo::before {
+    background: var(--primary);
+}
+
 .node-card.inactive::before {
+    background: var(--text-muted);
+}
+
+.node-card.malicious::before {
     background: var(--danger);
 }
 
 .node-card.primary::before {
-    background: var(--primary);
+    background: var(--warning);
 }
 
 .node-card:hover {
     transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
-    border-color: var(--primary);
+    box-shadow: var(--shadow-md);
 }
 
 .node-header {
@@ -97,24 +101,11 @@
 
 .node-detail-value {
     color: var(--text-primary);
-    font-family: "Monaco", "Menlo", monospace;
+    font-family: monospace;
     font-size: 0.8rem;
 }
 
-/* Consensus Visualizer Styles */
-.consensus-visualizer {
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-xl);
-    margin: var(--spacing-xl) 0;
-}
-
-.consensus-header {
-    text-align: center;
-    margin-bottom: var(--spacing-xl);
-}
-
+/* Consensus Phases */
 .consensus-phases {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -126,7 +117,7 @@
     text-align: center;
     padding: var(--spacing-lg);
     border: 2px solid var(--border);
-    border-radius: var(--radius-md);
+    border-radius: 8px;
     transition: all 0.3s ease;
 }
 
@@ -145,206 +136,15 @@
 .phase-description {
     font-size: 0.875rem;
     color: var(--text-secondary);
-    line-height: 1.5;
 }
 
-/* Byzantine Test Panel Styles */
-.byzantine-panel {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    padding: var(--spacing-xl);
-}
-
-.test-scenarios {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: var(--spacing-lg);
-    margin-top: var(--spacing-lg);
-}
-
-.scenario-card {
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    padding: var(--spacing-lg);
-    transition: all 0.3s ease;
-}
-
-.scenario-card:hover {
-    box-shadow: var(--shadow-md);
-    border-color: var(--primary);
-}
-
-.scenario-title {
-    font-weight: 600;
-    margin-bottom: var(--spacing-sm);
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-}
-
-.malicious-controls {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-md);
-    margin: var(--spacing-lg) 0;
-}
-
-.control-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-}
-
-.control-label {
-    font-weight: 500;
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-}
-
-/* Blockchain Monitor Styles */
-.blockchain-monitor {
-    background: var(--background);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-lg);
-    overflow: hidden;
-}
-
-.monitor-tabs {
-    display: flex;
-    border-bottom: 1px solid var(--border);
-    background: var(--surface);
-}
-
-.tab-button {
-    padding: var(--spacing-md) var(--spacing-lg);
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 2px solid transparent;
-}
-
-.tab-button.active {
-    color: var(--primary);
-    border-bottom-color: var(--primary);
-    background: var(--background);
-}
-
-.tab-button:hover {
-    color: var(--text-primary);
-    background: rgba(37, 99, 235, 0.05);
-}
-
-.tab-content {
-    padding: var(--spacing-xl);
-}
-
-.block-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-}
-
-.block-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: var(--spacing-md);
-    background: var(--surface);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-}
-
-.block-info {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
-}
-
-.block-height {
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.block-hash {
-    font-family: "Monaco", "Menlo", monospace;
-    font-size: 0.8rem;
-    color: var(--text-muted);
-}
-
-/* Responsive Design */
+/* Responsive */
 @media (max-width: 768px) {
-    .container {
-        padding: var(--spacing-md);
-    }
-
     .consensus-phases {
         grid-template-columns: 1fr;
     }
 
-    .malicious-controls {
+    .node-grid {
         grid-template-columns: 1fr;
-    }
-
-    .monitor-tabs {
-        flex-wrap: wrap;
-    }
-
-    .tab-button {
-        flex: 1;
-        min-width: 120px;
-    }
-}
-
-/* Animation Classes */
-.fade-in {
-    animation: fadeIn 0.5s ease-in;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.pulse {
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.7;
-    }
-}
-
-.slide-in {
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from {
-        transform: translateX(-10px);
-        opacity: 0;
-    }
-
-    to {
-        transform: translateX(0);
-        opacity: 1;
     }
 }
