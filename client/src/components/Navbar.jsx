@@ -51,10 +51,10 @@ const Navbar = () => {
                 Dashboard
               </Link>
               <Link
-                to="/vote"
+                to="/vote-anonymous"
                 className="text-gray-500 hover:text-emerald-600 transition-colors"
               >
-                Vote
+                Vote Anonymously
               </Link>
               <Link
                 to="/results"
@@ -67,6 +67,12 @@ const Navbar = () => {
                 className="text-gray-500 hover:text-emerald-600 transition-colors"
               >
                 Blockchain Explorer
+              </Link>
+                            <Link
+                to="/flow-diagram"
+                className="text-gray-500 hover:text-emerald-600 transition-colors"
+              >
+                Flow Diagram
               </Link>
             </>
           ) : (
