@@ -40,6 +40,7 @@ const Results = () => {
 
   const totalVotes = results.reduce((sum, candidate) => sum + candidate.votes, 0)
   const sortedResults = [...results].sort((a, b) => b.votes - a.votes)
+  const maxVotes = sortedResults.length > 0 ? sortedResults[0].votes : 0
 
   if (loading) {
     return (
@@ -117,58 +118,60 @@ const Results = () => {
           </div>
         )}
 
-        {/* Results */}
+        {/* Results Chart */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h2 className="text-xl font-semibold text-gray-800 mb-6">Candidate Results</h2>
 
           {sortedResults.length > 0 ? (
-            <div className="space-y-4">
+            <div className="flex items-end justify-center gap-4 md:gap-8 min-h-[400px] px-4">
               {sortedResults.map((candidate, index) => {
                 const percentage = totalVotes > 0 ? (candidate.votes / totalVotes) * 100 : 0
+                const barHeight = maxVotes > 0 ? Math.max((candidate.votes / maxVotes) * 300, 20) : 20
                 const isWinner = index === 0 && candidate.votes > 0
 
                 return (
-                  <div
-                    key={candidate.candidateId}
-                    className={`p-4 rounded-lg border ${
-                      isWinner ? "border-yellow-400 bg-yellow-50" : "border-gray-200 bg-gray-50"
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center space-x-4">
-                        {isWinner && (
-                          <div className="text-yellow-500">
-                            <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
-                              <path
-                                fillRule="evenodd"
-                                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                        )}
-                        <div>
-                          <h3 className="text-lg font-semibold text-gray-800">
-                            {candidate.name}
-                            {isWinner && <span className="ml-2 text-sm text-yellow-600 font-medium">Leading</span>}
-                          </h3>
-                          <p className="text-gray-600">{candidate.party}</p>
+                  <div key={candidate.candidateId} className="flex flex-col items-center flex-1 max-w-[120px]">
+                    {/* Vote Count */}
+                    <div className="text-center mb-2" style={{ minHeight: '48px' }}>
+                      <div className="text-lg font-bold text-gray-800">{candidate.votes}</div>
+                      <div className="text-sm text-gray-600">{percentage.toFixed(1)}%</div>
+                      {/* Winner Crown - positioned here to maintain alignment */}
+                      {isWinner && (
+                        <div className="text-yellow-500 mt-1">
+                          <svg className="w-5 h-5 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                            <path
+                              fillRule="evenodd"
+                              d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
                         </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-gray-800">{candidate.votes}</div>
-                        <div className="text-sm text-gray-600">{percentage.toFixed(1)}%</div>
+                      )}
+                    </div>
+                    
+                    {/* Vertical Bar */}
+                    <div className="relative flex flex-col justify-end w-12 md:w-16">
+                      <div
+                        className={`w-full rounded-t-lg transition-all duration-700 ease-out flex items-end justify-center pb-2 ${
+                          isWinner ? "bg-gradient-to-t from-yellow-400 to-yellow-500" : "bg-gradient-to-t from-[#21978B] to-[#18BC9C]"
+                        }`}
+                        style={{ height: `${barHeight}px` }}
+                      >
+                        {barHeight > 60 && (
+                          <span className="text-white text-xs font-semibold transform -rotate-90 origin-center whitespace-nowrap">
+                            {candidate.votes}
+                          </span>
+                        )}
                       </div>
                     </div>
-
-                    {/* Progress Bar */}
-                    <div className="w-full bg-gray-200 rounded-full h-3">
-                      <div
-                        className={`h-3 rounded-full transition-all duration-500 ${
-                          isWinner ? "bg-yellow-400" : "bg-[#21978B]"
-                        }`}
-                        style={{ width: `${percentage}%` }}
-                      ></div>
+                    
+                    {/* Candidate Info */}
+                    <div className="text-center mt-3">
+                      <h3 className="text-sm font-semibold text-gray-800 truncate w-full">
+                        {candidate.name}
+                        {isWinner && <span className="ml-1 text-xs text-yellow-600">★ Leading</span>}
+                      </h3>
+                      <p className="text-xs text-gray-500 truncate w-full mt-1">{candidate.party}</p>
                     </div>
                   </div>
                 )
