@@ -7,7 +7,6 @@ const Footer = () => {
     <footer className="bg-white text-gray-700 shadow-inner mt-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
           <div className="col-span-1 md:col-span-2">
             <div className="flex items-center space-x-3 mb-4">
               <Shield className="w-8 h-8 text-emerald-600" />
@@ -40,7 +39,6 @@ const Footer = () => {
             </div>
           </div>
 
-          {/* Quick Links */}
           <div>
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               Quick Links
@@ -51,14 +49,14 @@ const Footer = () => {
                   Home
                 </a>
               </li>
-              <li>
+              {/* <li>
                 <a
                   href="/blockchain"
                   className="text-gray-600 hover:text-emerald-600"
                 >
                   Blockchain Explorer
                 </a>
-              </li>
+              </li> */}
               <li>
                 <a
                   href="/vote"
@@ -70,7 +68,6 @@ const Footer = () => {
             </ul>
           </div>
 
-          {/* Support */}
           <div>
             <h3 className="text-lg font-semibold mb-4 text-gray-900">
               Support
