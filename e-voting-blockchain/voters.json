@@ -40,5 +40,12 @@
         "dob": "2002-12-15",
         "location": "Lalitpur",
         "email": "satish@gmail.com"
+    },
+    {
+        "VoterID": "shreeya123",
+        "name": "Shreeya Palikhel",
+        "dob": "2002-12-15",
+        "location": "Bhaktapur",
+        "email": "shreya213@gmail.com"
     }
 ]

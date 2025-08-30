@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"errors"
 	"log"
-	"math/big"
 	"net/http"
 	"time"
 
@@ -999,7 +998,6 @@ func HandleDeleteRegisteredVoter(w http.ResponseWriter, r *http.Request) {
 
 	voterID := mux.Vars(r)["voterID"]
 	log.Printf("Attempting to delete registered voter: %s", voterID)
-	
 
 	// Load current registered users
 	registeredUsers, err := contracts.LoadRegisteredUsers()
@@ -1088,75 +1086,75 @@ func IssueBlindSignatureHandler(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"blinded_signature": signedHex})
 }
 
-// GET /pubkey
-func HandleGetPubKey(w http.ResponseWriter, r *http.Request) {
-	nHex, eHex := blockchain.ExportAuthorityPublicKey()
-	if nHex == "" || eHex == "" {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Authority keys not initialized"})
-		return
-	}
-	json.NewEncoder(w).Encode(map[string]string{"n": nHex, "e": eHex})
-}
+// // GET /pubkey
+// func HandleGetPubKey(w http.ResponseWriter, r *http.Request) {
+// 	nHex, eHex := blockchain.ExportAuthorityPublicKey()
+// 	if nHex == "" || eHex == "" {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Authority keys not initialized"})
+// 		return
+// 	}
+// 	json.NewEncoder(w).Encode(map[string]string{"n": nHex, "e": eHex})
+// }
 
-// POST /issue-blind-signature
-func HandleIssueBlindSignature(w http.ResponseWriter, r *http.Request) {
-	type Req struct {
-		VoterID     string `json:"voterID"`
-		BlindedVote string `json:"blindedVote"` // hex-encoded big.Int
-	}
-	var req Req
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON"})
-		return
-	}
+// // POST /issue-blind-signature
+// func HandleIssueBlindSignature(w http.ResponseWriter, r *http.Request) {
+// 	type Req struct {
+// 		VoterID     string `json:"voterID"`
+// 		BlindedVote string `json:"blindedVote"` // hex-encoded big.Int
+// 	}
+// 	var req Req
+// 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON"})
+// 		return
+// 	}
 
-	// Verify JWT (Authorization header) to ensure voter is authenticated
-	// Use your existing token middleware or parse header manually
+// 	// Verify JWT (Authorization header) to ensure voter is authenticated
+// 	// Use your existing token middleware or parse header manually
 
-	// Convert blindedVote from hex string to big.Int
-	blindedInt := new(big.Int)
-	blindedInt.SetString(req.BlindedVote, 16)
+// 	// Convert blindedVote from hex string to big.Int
+// 	blindedInt := new(big.Int)
+// 	blindedInt.SetString(req.BlindedVote, 16)
 
-	signedBlind, err := blockchain.BlindSign(blindedInt)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to sign blinded vote"})
-		return
-	}
+// 	signedBlind, err := blockchain.BlindSign(blindedInt)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to sign blinded vote"})
+// 		return
+// 	}
 
-	json.NewEncoder(w).Encode(map[string]string{"signedBlind": signedBlind.Text(16)})
-}
+// 	json.NewEncoder(w).Encode(map[string]string{"signedBlind": signedBlind.Text(16)})
+// }
 
-// POST /submit-anonymous-vote
-func HandleSubmitAnonymousVote(w http.ResponseWriter, r *http.Request) {
-	type Req struct {
-		CandidateID string `json:"candidateID"`
-		SignedVote  string `json:"signedVote"` // hex-encoded
-	}
-	var req Req
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON"})
-		return
-	}
+// // POST /submit-anonymous-vote
+// func HandleSubmitAnonymousVote(w http.ResponseWriter, r *http.Request) {
+// 	type Req struct {
+// 		CandidateID string `json:"candidateID"`
+// 		SignedVote  string `json:"signedVote"` // hex-encoded
+// 	}
+// 	var req Req
+// 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid JSON"})
+// 		return
+// 	}
 
-	// Convert signed vote to big.Int
-	sigInt := new(big.Int)
-	sigInt.SetString(req.SignedVote, 16)
+// 	// Convert signed vote to big.Int
+// 	sigInt := new(big.Int)
+// 	sigInt.SetString(req.SignedVote, 16)
 
-	// Verify signature against candidateID (vote message)
-	if !blockchain.VerifySignature([]byte(req.CandidateID), sigInt.Bytes()) {
-		w.WriteHeader(http.StatusUnauthorized)
-		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid vote signature"})
-		return
-	}
+// 	// Verify signature against candidateID (vote message)
+// 	if !blockchain.VerifySignature([]byte(req.CandidateID), sigInt.Bytes()) {
+// 		w.WriteHeader(http.StatusUnauthorized)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid vote signature"})
+// 		return
+// 	}
 
-	// Cast anonymous vote to blockchain (VoterID empty)
-	tx := blockchain.NewTransaction("", req.CandidateID, "ANON_VOTE")
-	chain.AddBlock([]blockchain.Transaction{tx})
+// 	// Cast anonymous vote to blockchain (VoterID empty)
+// 	tx := blockchain.NewTransaction("", req.CandidateID, "ANON_VOTE")
+// 	chain.AddBlock([]blockchain.Transaction{tx})
 
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"status": "vote accepted"})
-}
+// 	w.WriteHeader(http.StatusCreated)
+// 	json.NewEncoder(w).Encode(map[string]string{"status": "vote accepted"})
+// }

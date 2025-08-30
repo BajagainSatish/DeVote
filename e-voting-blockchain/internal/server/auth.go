@@ -414,8 +414,8 @@ func HandleForgotPassword(w http.ResponseWriter, r *http.Request) {
 	// Mailtrap SMTP setup
 	smtpHost := "sandbox.smtp.mailtrap.io"
 	smtpPort := "2525"
-	smtpUser := "022d81c9828f4a"
-	smtpPass := "889e88969308e9"
+	smtpUser := "bd749e4ebed416"
+	smtpPass := "cd689b1fb3c62f"
 
 	fmt.Println("SMTP Config:", smtpHost, smtpPort, smtpUser)
 
@@ -506,8 +506,8 @@ func HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	// send confirmation email (Mailtrap)
 	smtpHost := "sandbox.smtp.mailtrap.io"
 	smtpPort := "2525"
-	smtpUser := "022d81c9828f4a"
-	smtpPass := "889e88969308e9"
+	smtpUser := "bd749e4ebed416"
+	smtpPass := "cd689b1fb3c62f"
 
 	auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
 	to := []string{user.Email}

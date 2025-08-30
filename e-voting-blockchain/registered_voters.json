@@ -33,5 +33,12 @@
     "voterId": "v6",
     "email": "satish@gmail.com",
     "resetTokenExpiry": "0001-01-01T00:00:00Z"
+  },
+  {
+    "username": "voter_shreeya123",
+    "password": "$2a$10$x111Ew7uKY/ibPed7a58y.iHZzhrtHs7ILTM.Ka78/FAXIitJyUe2",
+    "voterId": "shreeya123",
+    "email": "shreya213@gmail.com",
+    "resetTokenExpiry": "0001-01-01T00:00:00Z"
   }
 ]
