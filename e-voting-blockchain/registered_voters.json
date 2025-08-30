@@ -28,10 +28,10 @@
     "resetTokenExpiry": "0001-01-01T00:00:00Z"
   },
   {
-    "username": "voter_v5",
-    "password": "alice",
-    "voterId": "v5",
-    "email": "alice@gmail.com",
+    "username": "voter_v6",
+    "password": "$2a$10$ra9THO.RGC5bvV1cPbgL3OOm09QEKqcz0U/4QP6zYkobAq3GyFDw6",
+    "voterId": "v6",
+    "email": "satish@gmail.com",
     "resetTokenExpiry": "0001-01-01T00:00:00Z"
   }
 ]

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var jwtKey = []byte("super-secret-admin-key") // for simplicity, change this later
@@ -65,6 +66,57 @@ func HandleAdminLogin(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// func HandleUserLogin(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
+
+// 	type UserLoginRequest struct {
+// 		Username string `json:"username"`
+// 		Password string `json:"password"`
+// 	}
+
+// 	var creds UserLoginRequest
+// 	if err := json.NewDecoder(r.Body).Decode(&creds); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid input"})
+// 		return
+// 	}
+
+// 	// Load registered users
+// 	registeredUsers, err := contracts.LoadRegisteredUsers()
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"message": "Failed to load registered users"})
+// 		return
+// 	}
+
+// 	// Validate credentials strictly with username/password only
+// 	valid := false
+// 	for _, user := range registeredUsers {
+// 		if user.Username == creds.Username && user.Password == creds.Password {
+// 			valid = true
+// 			break
+// 		}
+// 	}
+
+// 	if !valid {
+// 		w.WriteHeader(http.StatusUnauthorized)
+// 		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid credentials"})
+// 		return
+// 	}
+
+// 	// create jwt token
+// 	expirationTime := time.Now().Add(1 * time.Hour)
+// 	claims := &Claims{
+// 		Username: creds.Username,
+// 		RegisteredClaims: jwt.RegisteredClaims{
+// 			ExpiresAt: jwt.NewNumericDate(expirationTime),
+// 		},
+// 	}
+// 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+// 	tokenString, _ := token.SignedString(jwtKey)
+// 	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
+// }
+
 func HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -88,22 +140,24 @@ func HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate credentials strictly with username/password only
-	valid := false
-	for _, user := range registeredUsers {
-		if user.Username == creds.Username && user.Password == creds.Password {
-			valid = true
+	// Find user and compare hashed password
+	var userFound *contracts.RegisteredUser
+	for i, user := range registeredUsers {
+		if user.Username == creds.Username {
+			if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(creds.Password)); err == nil {
+				userFound = &registeredUsers[i]
+			}
 			break
 		}
 	}
 
-	if !valid {
+	if userFound == nil {
 		w.WriteHeader(http.StatusUnauthorized)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Invalid credentials"})
 		return
 	}
 
-	// create jwt token
+	// Create JWT token
 	expirationTime := time.Now().Add(1 * time.Hour)
 	claims := &Claims{
 		Username: creds.Username,
@@ -111,12 +165,102 @@ func HandleUserLogin(w http.ResponseWriter, r *http.Request) {
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, _ := token.SignedString(jwtKey)
+	tokenString, err := token.SignedString(jwtKey)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Failed to generate token"})
+		return
+	}
+
 	json.NewEncoder(w).Encode(map[string]string{"token": tokenString})
 }
 
 // HandleUserRegister registers a new voter
+// func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
+// 	w.Header().Set("Content-Type", "application/json")
+
+// 	type RegisterRequest struct {
+// 		VoterID  string `json:"voterId"`
+// 		Name     string `json:"name"`
+// 		DOB      string `json:"dob"`
+// 		Location string `json:"location"`
+// 		Email    string `json:"email"`
+// 	}
+
+// 	var req RegisterRequest
+// 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+// 		w.WriteHeader(http.StatusBadRequest)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid input"})
+// 		return
+// 	}
+
+// 	// Step 1: Load government voter database
+// 	db, err := contracts.LoadVoterDatabase()
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Could not load voter database"})
+// 		return
+// 	}
+
+// 	voter, exists := db.Records[req.VoterID]
+// 	if !exists || voter.Name != req.Name || voter.DOB != req.DOB || voter.Location != req.Location || voter.Email != req.Email {
+// 		w.WriteHeader(http.StatusUnauthorized)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Voter details do not match government records"})
+// 		return
+// 	}
+
+// 	// Step 2: Load already registered users
+// 	registered, err := contracts.LoadRegisteredUsers()
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Could not load registered users"})
+// 		return
+// 	}
+
+// 	// Check if already registered
+// 	for _, u := range registered {
+// 		if u.VoterID == req.VoterID {
+// 			w.WriteHeader(http.StatusConflict)
+// 			json.NewEncoder(w).Encode(map[string]string{"error": "VoterID is already registered"})
+// 			return
+// 		}
+// 		if u.Email == req.Email {
+// 			w.WriteHeader(http.StatusConflict)
+// 			json.NewEncoder(w).Encode(map[string]string{"error": "Voter Email is already registered"})
+// 			return
+// 		}
+// 	}
+
+// 	// Step 3: Generate credentials
+// 	username := "voter_" + req.VoterID
+// 	password, err := contracts.GenerateSecurePassword(8)
+// 	if err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Password generation failed"})
+// 		return
+// 	}
+
+// 	newUser := contracts.RegisteredUser{
+// 		Username: username,
+// 		Password: password,
+// 		VoterID:  req.VoterID,
+// 		Email:    req.Email,
+// 	}
+// 	registered = append(registered, newUser)
+// 	if err := contracts.SaveRegisteredUsers(registered); err != nil {
+// 		w.WriteHeader(http.StatusInternalServerError)
+// 		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to save credentials"})
+// 		return
+// 	}
+
+// 	json.NewEncoder(w).Encode(map[string]string{
+// 		"username": username,
+// 		"password": password,
+// 	})
+// }
+
 func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 
@@ -181,12 +325,21 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Hash the password before storing
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to hash password"})
+		return
+	}
+
 	newUser := contracts.RegisteredUser{
 		Username: username,
-		Password: password,
+		Password: string(hashedPassword), // store hashed password
 		VoterID:  req.VoterID,
 		Email:    req.Email,
 	}
+
 	registered = append(registered, newUser)
 	if err := contracts.SaveRegisteredUsers(registered); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -194,6 +347,7 @@ func HandleUserRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Return plain password so the user can log in initially
 	json.NewEncoder(w).Encode(map[string]string{
 		"username": username,
 		"password": password,

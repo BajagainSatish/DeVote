@@ -33,5 +33,12 @@
         "dob": "1998-07-15",
         "location": "Lalitpur",
         "email": "alice@gmail.com"
+    },
+    {
+        "VoterID": "v6",
+        "name": "Satish Bajagain",
+        "dob": "2002-12-15",
+        "location": "Lalitpur",
+        "email": "satish@gmail.com"
     }
 ]
