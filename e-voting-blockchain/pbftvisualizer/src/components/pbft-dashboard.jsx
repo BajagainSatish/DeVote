@@ -20,10 +20,39 @@ export function PBFTDashboard() {
   const [nodes, setNodes] = useState(initialNodes)
   const [consensusPhase, setConsensusPhase] = useState("idle")
   const [isConnected, setIsConnected] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [demoMode, setDemoMode] = useState(false)
+
+  // Initialize demo mode with mock active nodes
+  const initializeDemoMode = () => {
+    const mockActiveNodes = initialNodes.map((node, index) => ({
+      ...node,
+      status: index === 0 ? "active" : (index === 3 ? "malicious" : "active"), // Make node4 malicious for demo
+      height: 3 + Math.floor(Math.random() * 2), // Random height 3-4
+      hash: `${Date.now().toString(16).slice(-8)}${Math.random().toString(16).slice(2, 10)}`,
+      sequenceNum: Math.floor(Math.random() * 10),
+      view: 0,
+      state: 0,
+      isPrimary: index === 0
+    }))
+
+    setNodes(mockActiveNodes)
+    setIsConnected(true)
+    setDemoMode(true)
+  }
 
   const checkNodesStatus = async () => {
-    setIsLoading(true)
+    if (demoMode) {
+      // In demo mode, just simulate some updates
+      const updatedNodes = nodes.map(node => ({
+        ...node,
+        sequenceNum: node.sequenceNum + Math.floor(Math.random() * 2),
+        // Randomly update heights occasionally
+        height: Math.random() < 0.3 ? node.height + 1 : node.height
+      }))
+      setNodes(updatedNodes)
+      return
+    }
+
     let hasActiveNodes = false
 
     try {
@@ -71,54 +100,24 @@ export function PBFTDashboard() {
       
       setNodes(updatedNodes)
       setIsConnected(hasActiveNodes)
+      
+      // If no nodes are active, offer demo mode
+      if (!hasActiveNodes && !demoMode) {
+        console.log("No active nodes detected, demo mode available")
+      }
     } catch (error) {
       console.error("Error checking nodes status:", error)
       setIsConnected(false)
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  // Submit a test vote to trigger consensus
-  const submitTestVote = async () => {
-    const primaryNode = nodes.find(node => node.isPrimary && node.status === "active")
-    if (!primaryNode) {
-      alert("No active primary node found")
-      return
-    }
-
-    try {
-      const response = await fetch(`http://${primaryNode.address}:${primaryNode.port}/vote`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          voter_id: `test_voter_${Date.now()}`,
-          candidate_id: `candidate_${Math.floor(Math.random() * 3) + 1}`
-        })
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        alert(`Vote submitted successfully! Transaction ID: ${result.transaction_id}`)
-        
-        // Refresh node status after a delay to see the new block
-        setTimeout(() => {
-          checkNodesStatus()
-        }, 3000)
-      } else {
-        alert("Failed to submit vote")
-      }
-    } catch (error) {
-      console.error("Error submitting vote:", error)
-      alert("Error submitting vote")
     }
   }
 
   useEffect(() => {
     checkNodesStatus()
-    const interval = setInterval(checkNodesStatus, 5000) // Check every 5 seconds
-    return () => clearInterval(interval)
-  }, [])
+    if (!demoMode) {
+      const interval = setInterval(checkNodesStatus, 5000) // Check every 5 seconds
+      return () => clearInterval(interval)
+    }
+  }, [demoMode])
 
   return (
     <div className="pbft-dashboard">
@@ -129,36 +128,26 @@ export function PBFTDashboard() {
           <p className="text-muted text-lg">Practical Byzantine Fault Tolerance Algorithm with 4 Blockchain Nodes</p>
           <div className="flex items-center justify-center gap-2" style={{ marginTop: "1rem" }}>
             <Badge variant={isConnected ? "default" : "destructive"}>
-              {isConnected ? `${nodes.filter(n => n.status === "active" || n.status === "malicious").length} Nodes Connected` : "Nodes Offline"}
+              {isConnected ? 
+                `${nodes.filter(n => n.status === "active" || n.status === "malicious").length} Nodes Connected` : 
+                "Nodes Offline"
+              }
             </Badge>
-            <Button 
-              onClick={checkNodesStatus} 
-              variant="outline" 
-              size="sm"
-              disabled={isLoading}
-            >
-              {isLoading ? "Checking..." : "Refresh Status"}
-            </Button>
-            <Button 
-              onClick={submitTestVote} 
-              variant="primary" 
-              size="sm"
-              disabled={!isConnected || isLoading}
-            >
-              Submit Test Vote
-            </Button>
+            {demoMode && (
+              <Badge variant="outline">Demo Mode</Badge>
+            )}
           </div>
         </div>
 
-        {/* Connection Status */}
-        {!isConnected && (
+        {/* Connection Status / Demo Mode Toggle */}
+        {!isConnected && !demoMode && (
           <Card style={{ marginBottom: "24px" }}>
             <CardContent style={{ textAlign: "center", padding: "24px" }}>
               <div style={{ color: "var(--danger)", marginBottom: "16px" }}>
                 <strong>Backend Not Connected</strong>
               </div>
               <p style={{ color: "var(--text-secondary)", marginBottom: "16px" }}>
-                Make sure your PBFT nodes are running:
+                Make sure your PBFT nodes are running, or use demo mode for visualization:
               </p>
               <div style={{ 
                 backgroundColor: "var(--surface)", 
@@ -166,13 +155,43 @@ export function PBFTDashboard() {
                 borderRadius: "8px",
                 fontFamily: "monospace",
                 fontSize: "0.875rem",
-                textAlign: "left"
+                textAlign: "left",
+                marginBottom: "16px"
               }}>
                 <div>go run cmd/pbft-node/main.go -id node1 -port 8081</div>
                 <div>go run cmd/pbft-node/main.go -id node2 -port 8082</div>
                 <div>go run cmd/pbft-node/main.go -id node3 -port 8083</div>
                 <div>go run cmd/pbft-node/main.go -id node4 -port 8084</div>
               </div>
+              <Button onClick={initializeDemoMode} variant="primary">
+                Enable Demo Mode
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {demoMode && (
+          <Card style={{ marginBottom: "24px" }}>
+            <CardContent style={{ textAlign: "center", padding: "16px" }}>
+              <div style={{ color: "var(--primary)", marginBottom: "8px" }}>
+                <strong>Demo Mode Active</strong>
+              </div>
+              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
+                Using simulated PBFT network for demonstration. All features work with mock data.
+              </p>
+              <Button 
+                onClick={() => {
+                  setDemoMode(false)
+                  setNodes(initialNodes)
+                  setIsConnected(false)
+                  checkNodesStatus()
+                }} 
+                variant="outline" 
+                size="sm"
+                style={{ marginTop: "8px" }}
+              >
+                Try Live Backend
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -202,6 +221,7 @@ export function PBFTDashboard() {
           phase={consensusPhase} 
           onPhaseChange={setConsensusPhase}
           onNodesUpdate={setNodes}
+          demoMode={demoMode}
         />
 
         {/* Byzantine Testing */}
@@ -209,10 +229,11 @@ export function PBFTDashboard() {
           nodes={nodes} 
           onNodesUpdate={setNodes}
           onRefreshNodes={checkNodesStatus}
+          demoMode={demoMode}
         />
 
         {/* Blockchain Monitor */}
-        <BlockchainMonitor nodes={nodes} />
+        <BlockchainMonitor nodes={nodes} onNodesUpdate={setNodes} />
       </div>
     </div>
   )

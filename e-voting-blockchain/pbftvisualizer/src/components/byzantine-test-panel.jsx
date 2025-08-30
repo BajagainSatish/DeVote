@@ -87,19 +87,12 @@ export function ByzantineTestPanel({ nodes, onRefreshNodes }) {
             1 Malicious (Safe)
           </Button>
           <Button 
-            onClick={() => runMaliciousTest(["node2", "node3"])}
-            disabled={isTestRunning}
-            size="sm"
-          >
-            2 Malicious (Unsafe)
-          </Button>
-          <Button 
             onClick={resetAllNodes}
             variant="outline"
             disabled={isTestRunning}
             size="sm"
           >
-            Reset All Honest
+            Reset To All Honest Nodes
           </Button>
         </div>
         
